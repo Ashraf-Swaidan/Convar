@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: In progress (Steps 1–5 complete)**
+**Status: In progress (Steps 1–6 complete)**
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -207,7 +207,7 @@ Checkpoint:
 
 ---
 
-### Step 6 — Format Picker UI
+### Step 6 — Format Picker UI ✅
 
 Replace duplicate buttons / implicit WebP-only copy with a single flow:
 

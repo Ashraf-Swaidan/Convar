@@ -5,9 +5,12 @@ export type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 
 export type InputFileType = 'png' | 'jpg'
 
+export type OutputFormat = 'webp' | 'jpg' | 'png'
+
 type ConverterFn = (input: Buffer) => Promise<Buffer>
 
 export type ConversionMeta = {
+  label: string
   inputType: InputFileType
   outputExt: string
   saveFilterName: string
@@ -44,6 +47,7 @@ export const converters: Record<ConversionId, ConverterFn> = {
 
 export const conversionMeta: Record<ConversionId, ConversionMeta> = {
   'png-webp': {
+    label: 'PNG → WebP',
     inputType: 'png',
     outputExt: 'webp',
     saveFilterName: 'WebP Images',
@@ -52,6 +56,7 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     conversionFailedError: 'Conversion failed. The file may not be a valid PNG.'
   },
   'png-jpg': {
+    label: 'PNG → JPG',
     inputType: 'png',
     outputExt: 'jpg',
     saveFilterName: 'JPEG Images',
@@ -60,6 +65,7 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     conversionFailedError: 'Conversion failed. The file may not be a valid PNG.'
   },
   'jpg-png': {
+    label: 'JPG → PNG',
     inputType: 'jpg',
     outputExt: 'png',
     saveFilterName: 'PNG Images',
@@ -67,6 +73,23 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     invalidInputError: 'Invalid file type. Please select a JPG file.',
     conversionFailedError: 'Conversion failed. The file may not be a valid JPG.'
   }
+}
+
+export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
+  png: ['webp', 'jpg'],
+  jpg: ['png']
+}
+
+export function isConversionId(value: string): value is ConversionId {
+  return value in converters
+}
+
+export function toConversionId(
+  input: InputFileType,
+  output: OutputFormat
+): ConversionId | null {
+  const id = `${input}-${output}`
+  return isConversionId(id) ? id : null
 }
 
 export function isValidInputFile(filePath: string, inputType: InputFileType): boolean {
@@ -86,8 +109,4 @@ export function getOpenDialogFilters(inputType: InputFileType): Electron.FileFil
 
 export async function runConversion(input: Buffer, conversionId: ConversionId): Promise<Buffer> {
   return converters[conversionId](input)
-}
-
-export function isConversionId(value: string): value is ConversionId {
-  return value in converters
 }

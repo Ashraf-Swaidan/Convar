@@ -7,6 +7,10 @@ type ReadFileResult =
   | { ok: true; byteLength: number }
   | { ok: false; error: string }
 
+type PreviewResult =
+  | { ok: true; dataUrl: string; fileName: string }
+  | { ok: false; error: string }
+
 type ConvertSaveResult =
   | { ok: true; savedPath: string; outputByteLength: number }
   | { ok: false; error: string }
@@ -17,6 +21,8 @@ const api = {
     ipcRenderer.invoke('dialog:selectFile', conversionId),
   readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', filePath, conversionId),
+  getFilePreview: (filePath: string, conversionId: ConversionId): Promise<PreviewResult> =>
+    ipcRenderer.invoke('file:getPreview', filePath, conversionId),
   convertAndSave: (filePath: string, conversionId: ConversionId): Promise<ConvertSaveResult> =>
     ipcRenderer.invoke('convert:save', filePath, conversionId)
 }

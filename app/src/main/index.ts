@@ -3,6 +3,7 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
+import { createPreviewDataUrl } from './preview'
 import {
   runConversion,
   conversionMeta,
@@ -97,6 +98,33 @@ app.whenReady().then(() => {
       return { ok: true as const, byteLength: buffer.byteLength }
     } catch {
       return { ok: false as const, error: 'Could not read the file.' }
+    }
+  })
+
+  ipcMain.handle('file:getPreview', async (_, filePath: string, conversionId: ConversionId) => {
+    if (!isConversionId(conversionId)) {
+      return { ok: false as const, error: 'Unknown conversion.' }
+    }
+
+    const meta = conversionMeta[conversionId]
+
+    if (!filePath) {
+      return { ok: false as const, error: 'No file selected.' }
+    }
+
+    if (!isValidInputFile(filePath, meta.inputType)) {
+      return { ok: false as const, error: meta.invalidInputError }
+    }
+
+    try {
+      const dataUrl = await createPreviewDataUrl(filePath)
+      return {
+        ok: true as const,
+        dataUrl,
+        fileName: basename(filePath)
+      }
+    } catch {
+      return { ok: false as const, error: 'Could not load preview.' }
     }
   })
 

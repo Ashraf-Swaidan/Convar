@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, X } from 'lucide-react'
+import { EmptyFilesState } from '@/components/EmptyFilesState'
 import type { FileConversionStatus } from '@/lib/conversionStatus'
 
 const MAX_PREVIEWS = 3
@@ -33,14 +34,12 @@ export function FilePreviewCollage({
   const hasStatuses = Object.keys(statusByPath).length > 0
 
   if (previewFiles.length === 0 && totalCount === 0) {
-    return (
-      <p className="py-6 text-center text-sm text-muted-foreground/80">No files selected</p>
-    )
+    return <EmptyFilesState />
   }
 
   if (previewFiles.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-muted-foreground">
+      <p className="py-6 text-center text-sm text-muted-foreground">
         {totalCount} file{totalCount === 1 ? '' : 's'} selected
       </p>
     )

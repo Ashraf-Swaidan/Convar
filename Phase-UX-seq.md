@@ -1,6 +1,6 @@
 # Phase UX — Polish & Experience
 
-**Status: In progress (Step 3 complete)**
+**Status: In progress (Step 4 complete)**
 
 **Prerequisite:** Phase 4 complete (`Phase-4-seq.md`)
 
@@ -76,9 +76,12 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * Drag-over highlight + hint copy
 * Skips invalid formats with a toast when adding via drop
 
-### Step 4 — Visual pass
+### Step 4 — Visual pass ✅
 
-* Typography, spacing, empty states, dark mode check
+* Section layout (Format / Files / Convert) with tighter spacing
+* Format hints under input & output selectors
+* Empty state with icon + drop hint in dashed file zone
+* Larger primary Convert button; outlined Select Files
 
 ### Step 5 — Build / package smoke test
 

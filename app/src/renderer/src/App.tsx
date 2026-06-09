@@ -20,6 +20,7 @@ import {
   type FileConversionStatus
 } from '@/lib/conversionStatus'
 import { resolveDroppedPaths } from '@/lib/detectInputFormat'
+import { inputFormatHints, outputFormatHints } from '@/lib/formatHints'
 import type { ConversionId, InputFormat, OutputFormat } from '@/lib/formatTypes'
 import {
   getRememberedOutputFolder,
@@ -348,117 +349,149 @@ function App(): React.JSX.Element {
       <p className="text-sm text-muted-foreground">Loading…</p>
     </div>
   ) : (
-    <main className="flex flex-1 flex-col items-center overflow-y-auto p-6">
-      <div className="flex w-full max-w-lg flex-col gap-4 py-2">
-        <p className="text-center text-sm text-muted-foreground">
-          Choose formats, select or drop files, then convert.
-        </p>
+    <main className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-8">
+      <div className="flex w-full max-w-md flex-col gap-8">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            Format
+          </h2>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Input</span>
+              <Select
+                value={inputFormat}
+                onValueChange={handleInputFormatChange}
+                disabled={isConverting}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {formatOptions.inputFormats.map((format) => (
+                    <SelectItem key={format} value={format}>
+                      {formatOptions.formatLabels[format]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {inputFormatHints[inputFormat]}
+              </p>
+            </div>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Input</span>
-            <Select
-              value={inputFormat}
-              onValueChange={handleInputFormatChange}
-              disabled={isConverting}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {formatOptions.inputFormats.map((format) => (
-                  <SelectItem key={format} value={format}>
-                    {formatOptions.formatLabels[format]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <span className="pt-8 text-sm text-muted-foreground/60">→</span>
 
-          <span className="pb-2 text-sm text-muted-foreground">→</span>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Output</span>
-            <Select
-              value={outputFormat}
-              onValueChange={handleOutputFormatChange}
-              disabled={isConverting}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {outputOptions.map((format) => (
-                  <SelectItem key={format} value={format}>
-                    {formatOptions.formatLabels[format]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <Button type="button" onClick={handleSelectFiles} disabled={isConverting}>
-          Select Files
-        </Button>
-
-        <FilePreviewCollage
-          files={selectedFiles}
-          totalCount={selectedFiles.length}
-          statusByPath={statusByPath}
-        />
-
-        <AssetList
-          files={selectedFiles}
-          conversionId={conversionId}
-          formatFileSize={formatFileSize}
-          statusByPath={statusByPath}
-          autoExpand={assetListExpanded}
-        />
-
-        {batchProgress !== null && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">
-              Converting {batchProgress.current} of {batchProgress.total}: {batchProgress.fileName}
-            </p>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all duration-200"
-                style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-              />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Output</span>
+              <Select
+                value={outputFormat}
+                onValueChange={handleOutputFormatChange}
+                disabled={isConverting}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {outputOptions.map((format) => (
+                    <SelectItem key={format} value={format}>
+                      {formatOptions.formatLabels[format]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {outputFormatHints[outputFormat]}
+              </p>
             </div>
           </div>
-        )}
+        </section>
 
-        <Button
-          type="button"
-          disabled={selectedFiles.length === 0 || isConverting}
-          onClick={handleConvert}
-        >
-          {isConverting
-            ? 'Converting…'
-            : selectedFiles.length > 1
-              ? `Convert ${selectedFiles.length} files`
-              : 'Convert'}
-        </Button>
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              Files
+            </h2>
+            {selectedFiles.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {selectedFiles.length} {formatOptions.formatLabels[inputFormat]}
+                {selectedFiles.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
 
-        {showOpenOutputFolder && (
-          <Button type="button" variant="outline" onClick={handleOpenOutputFolder}>
-            Open output folder
-          </Button>
-        )}
+          <div className="rounded-xl border border-dashed border-border/90 bg-muted/20 px-2">
+            <FilePreviewCollage
+              files={selectedFiles}
+              totalCount={selectedFiles.length}
+              statusByPath={statusByPath}
+            />
+          </div>
 
-        {error !== null && <AppErrorDisplay error={error} />}
-
-        {isDev && selectedFiles.length > 1 && (
-          <button
+          <Button
             type="button"
-            onClick={handleDevMockMixedResults}
-            className="text-center text-[11px] text-muted-foreground/70 underline-offset-2 hover:text-muted-foreground hover:underline"
+            variant="outline"
+            onClick={handleSelectFiles}
+            disabled={isConverting}
           >
-            Dev: preview mixed results UI
-          </button>
-        )}
+            Select Files
+          </Button>
+
+          <AssetList
+            files={selectedFiles}
+            conversionId={conversionId}
+            formatFileSize={formatFileSize}
+            statusByPath={statusByPath}
+            autoExpand={assetListExpanded}
+          />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          {batchProgress !== null && (
+            <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/25 px-3 py-3">
+              <p className="text-sm text-foreground/90">
+                Converting {batchProgress.current} of {batchProgress.total}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{batchProgress.fileName}</p>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all duration-200"
+                  style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            size="lg"
+            disabled={selectedFiles.length === 0 || isConverting}
+            onClick={handleConvert}
+          >
+            {isConverting
+              ? 'Converting…'
+              : selectedFiles.length > 1
+                ? `Convert ${selectedFiles.length} files`
+                : 'Convert'}
+          </Button>
+
+          {showOpenOutputFolder && (
+            <Button type="button" variant="outline" onClick={handleOpenOutputFolder}>
+              Open output folder
+            </Button>
+          )}
+
+          {error !== null && <AppErrorDisplay error={error} />}
+
+          {isDev && selectedFiles.length > 1 && (
+            <button
+              type="button"
+              onClick={handleDevMockMixedResults}
+              className="text-center text-[11px] text-muted-foreground/70 underline-offset-2 hover:text-muted-foreground hover:underline"
+            >
+              Dev: preview mixed results UI
+            </button>
+          )}
+        </section>
       </div>
     </main>
   )

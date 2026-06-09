@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
+import { AssetList } from '@/components/AssetList'
 import { BatchFailureSummary } from '@/components/BatchFailureSummary'
 import { FilePreviewCollage } from '@/components/FilePreviewCollage'
 import { TitleBar } from '@/components/TitleBar'
@@ -250,15 +251,11 @@ function App(): React.JSX.Element {
 
         <FilePreviewCollage files={selectedFiles} totalCount={selectedFiles.length} />
 
-        {selectedFiles.length > 0 && (
-          <ul className="max-h-24 space-y-0.5 overflow-y-auto text-center text-xs text-muted-foreground/90">
-            {selectedFiles.map((file) => (
-              <li key={file.path} className="truncate">
-                {file.fileName} · {formatFileSize(file.byteLength)}
-              </li>
-            ))}
-          </ul>
-        )}
+        <AssetList
+          files={selectedFiles}
+          conversionId={conversionId}
+          formatFileSize={formatFileSize}
+        />
 
         {batchProgress !== null && (
           <div className="flex flex-col gap-2">

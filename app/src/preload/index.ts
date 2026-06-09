@@ -62,8 +62,12 @@ const api = {
     ipcRenderer.invoke('file:read', filePath, conversionId),
   getFilePreview: (filePath: string, conversionId: ConversionId): Promise<PreviewResult> =>
     ipcRenderer.invoke('file:getPreview', filePath, conversionId),
-  convertAndSave: (filePath: string, conversionId: ConversionId): Promise<ConvertSaveResult> =>
-    ipcRenderer.invoke('convert:save', filePath, conversionId),
+  convertAndSave: (
+    filePath: string,
+    conversionId: ConversionId,
+    options?: { saveNextToInput?: boolean }
+  ): Promise<ConvertSaveResult> =>
+    ipcRenderer.invoke('convert:save', filePath, conversionId, options),
   convertAndSaveBatch: (
     filePaths: string[],
     outputDir: string,

@@ -18,6 +18,8 @@ type AssetListProps = {
   formatFileSize: (bytes: number) => string
   statusByPath?: Record<string, FileConversionStatus>
   autoExpand?: boolean
+  onRemoveFile?: (path: string) => void
+  removeDisabled?: boolean
 }
 
 export function AssetList({
@@ -25,7 +27,9 @@ export function AssetList({
   conversionId,
   formatFileSize,
   statusByPath = {},
-  autoExpand = false
+  autoExpand = false,
+  onRemoveFile,
+  removeDisabled = false
 }: AssetListProps): React.JSX.Element | null {
   const [open, setOpen] = useState(false)
   const [previewByPath, setPreviewByPath] = useState<Record<string, string>>({})
@@ -128,6 +132,7 @@ export function AssetList({
               <th className="w-16 py-1.5 pr-1 text-right font-medium" scope="col">
                 Size
               </th>
+              {onRemoveFile !== undefined && <th className="w-7 py-1.5" scope="col" />}
             </tr>
           </thead>
           <tbody>
@@ -164,6 +169,19 @@ export function AssetList({
                   <td className="py-1.5 pr-1 text-right align-middle whitespace-nowrap text-muted-foreground">
                     {formatFileSize(file.byteLength)}
                   </td>
+                  {onRemoveFile !== undefined && (
+                    <td className="py-1.5 pr-1 text-right align-middle">
+                      <button
+                        type="button"
+                        aria-label={`Remove ${file.fileName}`}
+                        disabled={removeDisabled}
+                        onClick={() => onRemoveFile(file.path)}
+                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        <X className="size-3.5" strokeWidth={2} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               )
             })}

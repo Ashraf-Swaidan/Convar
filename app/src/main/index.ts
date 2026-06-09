@@ -202,7 +202,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'convert:save',
-    async (event, inputPath: string, conversionId: ConversionId) => {
+    async (
+      event,
+      inputPath: string,
+      conversionId: ConversionId,
+      options?: { saveNextToInput?: boolean }
+    ) => {
       const resolved = resolveConversion(conversionId)
       if (!resolved.ok) {
         return resolved
@@ -219,23 +224,29 @@ app.whenReady().then(() => {
       }
 
       const meta = resolved.meta
-      const window = BrowserWindow.fromWebContents(event.sender)
-      const defaultPath = join(
+      const outputPath = join(
         dirname(inputPath),
         `${basename(inputPath, extname(inputPath))}.${meta.outputExt}`
       )
 
-      const result = await dialog.showSaveDialog(window!, {
-        defaultPath,
-        filters: [{ name: meta.saveFilterName, extensions: meta.saveExtensions }]
-      })
+      let savedPath = outputPath
 
-      if (result.canceled || !result.filePath) {
-        return { canceled: true as const }
+      if (!options?.saveNextToInput) {
+        const window = BrowserWindow.fromWebContents(event.sender)
+        const result = await dialog.showSaveDialog(window!, {
+          defaultPath: outputPath,
+          filters: [{ name: meta.saveFilterName, extensions: meta.saveExtensions }]
+        })
+
+        if (result.canceled || !result.filePath) {
+          return { canceled: true as const }
+        }
+
+        savedPath = result.filePath
       }
 
       const writeResult = await writeConvertedOutput(
-        result.filePath,
+        savedPath,
         convertResult.buffer,
         resolved.conversionId
       )
@@ -245,7 +256,7 @@ app.whenReady().then(() => {
 
       return {
         ok: true as const,
-        savedPath: result.filePath,
+        savedPath,
         outputByteLength: convertResult.buffer.byteLength
       }
     }

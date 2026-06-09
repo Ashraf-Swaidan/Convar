@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
 import { AssetList } from '@/components/AssetList'
+import { BatchFailureSummary, type BatchFailure } from '@/components/BatchFailureSummary'
 import { DropOverlay } from '@/components/DropOverlay'
 import { FilePreviewCollage } from '@/components/FilePreviewCollage'
 import { TitleBar } from '@/components/TitleBar'
@@ -26,6 +27,7 @@ import {
   getRememberedOutputFolder,
   rememberOutputFolder
 } from '@/lib/outputFolder'
+import { getSaveNextToInput, setSaveNextToInput } from '@/lib/saveNextToInput'
 
 type FormatOptions = {
   inputFormats: InputFormat[]
@@ -79,6 +81,8 @@ function App(): React.JSX.Element {
   const [assetListExpanded, setAssetListExpanded] = useState(false)
   const [batchOutputFolder, setBatchOutputFolder] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [saveNextToInput, setSaveNextToInputState] = useState(getSaveNextToInput)
+  const [batchFailures, setBatchFailures] = useState<BatchFailure[]>([])
   const dragDepth = useRef(0)
 
   useEffect(() => {
@@ -98,6 +102,30 @@ function App(): React.JSX.Element {
     setError(null)
     setAssetListExpanded(false)
     setBatchOutputFolder(null)
+    setBatchFailures([])
+  }
+
+  const handleClearFiles = (): void => {
+    clearFileState()
+    clearResultState()
+  }
+
+  const handleRemoveFile = (path: string): void => {
+    const nextFiles = selectedFiles.filter((file) => file.path !== path)
+    setSelectedFiles(nextFiles)
+    setStatusByPath((prev) => {
+      const { [path]: _, ...rest } = prev
+      return rest
+    })
+
+    if (nextFiles.length === 0) {
+      clearResultState()
+    }
+  }
+
+  const handleSaveNextToInputChange = (checked: boolean): void => {
+    setSaveNextToInputState(checked)
+    setSaveNextToInput(checked)
   }
 
   const handleInputFormatChange = (value: InputFormat): void => {
@@ -253,7 +281,9 @@ function App(): React.JSX.Element {
     try {
       if (selectedFiles.length === 1) {
         const file = selectedFiles[0]
-        const result = await window.api.convertAndSave(file.path, conversionId)
+        const result = await window.api.convertAndSave(file.path, conversionId, {
+          saveNextToInput
+        })
 
         if ('canceled' in result) return
 
@@ -296,6 +326,15 @@ function App(): React.JSX.Element {
       }
 
       setStatusByPath(buildStatusMapFromBatch(result.results))
+      setBatchFailures(
+        result.results
+          .filter((entry): entry is Extract<BatchFileResult, { ok: false }> => !entry.ok)
+          .map((entry) => ({
+            inputPath: entry.inputPath,
+            error: entry.error,
+            code: entry.code
+          }))
+      )
       setAssetListExpanded(true)
       setBatchOutputFolder(outputDir)
       notifyBatchComplete(result.results)
@@ -326,6 +365,15 @@ function App(): React.JSX.Element {
     })
 
     setStatusByPath(buildStatusMapFromBatch(results))
+    setBatchFailures(
+      results
+        .filter((entry): entry is Extract<BatchFileResult, { ok: false }> => !entry.ok)
+        .map((entry) => ({
+          inputPath: entry.inputPath,
+          error: entry.error,
+          code: entry.code
+        }))
+    )
     setAssetListExpanded(true)
     notifyBatchComplete(results)
     toast.message('Dev preview: mixed batch results')
@@ -411,12 +459,24 @@ function App(): React.JSX.Element {
             <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
               Files
             </h2>
-            {selectedFiles.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {selectedFiles.length} {formatOptions.formatLabels[inputFormat]}
-                {selectedFiles.length === 1 ? '' : 's'}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {selectedFiles.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedFiles.length} {formatOptions.formatLabels[inputFormat]}
+                  {selectedFiles.length === 1 ? '' : 's'}
+                </span>
+              )}
+              {selectedFiles.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isConverting}
+                  onClick={handleClearFiles}
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="rounded-xl border border-dashed border-border/90 bg-muted/20 px-2">
@@ -442,6 +502,8 @@ function App(): React.JSX.Element {
             formatFileSize={formatFileSize}
             statusByPath={statusByPath}
             autoExpand={assetListExpanded}
+            onRemoveFile={handleRemoveFile}
+            removeDisabled={isConverting}
           />
         </section>
 
@@ -461,6 +523,19 @@ function App(): React.JSX.Element {
             </div>
           )}
 
+          {selectedFiles.length === 1 && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={saveNextToInput}
+                disabled={isConverting}
+                onChange={(event) => handleSaveNextToInputChange(event.target.checked)}
+                className="size-3.5 rounded border-border accent-primary"
+              />
+              Save next to original file
+            </label>
+          )}
+
           <Button
             type="button"
             size="lg"
@@ -478,6 +553,10 @@ function App(): React.JSX.Element {
             <Button type="button" variant="outline" onClick={handleOpenOutputFolder}>
               Open output folder
             </Button>
+          )}
+
+          {batchFailures.length > 0 && (
+            <BatchFailureSummary failures={batchFailures} fileNameFromPath={fileNameFromPath} />
           )}
 
           {error !== null && <AppErrorDisplay error={error} />}

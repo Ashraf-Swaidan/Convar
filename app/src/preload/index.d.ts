@@ -55,7 +55,11 @@ declare global {
       openPath: (targetPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
       readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>
-      convertAndSave: (filePath: string, conversionId: ConversionId) => Promise<ConvertSaveResult>
+      convertAndSave: (
+        filePath: string,
+        conversionId: ConversionId,
+        options?: { saveNextToInput?: boolean }
+      ) => Promise<ConvertSaveResult>
       convertAndSaveBatch: (
         filePaths: string[],
         outputDir: string,

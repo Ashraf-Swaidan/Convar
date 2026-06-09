@@ -83,7 +83,14 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * Empty state with icon + drop hint in dashed file zone
 * Larger primary Convert button; outlined Select Files
 
-### Step 5 — Build / package smoke test
+### Step 5 — File list + single-file save polish ✅
+
+* Remove individual files from asset list
+* Clear all files
+* Batch failure summary grouped by error code
+* “Save next to original file” toggle (single-file, remembered in session)
+
+### Step 6 — Build / package smoke test
 
 * `npm run build:win`, app icon, window title
 

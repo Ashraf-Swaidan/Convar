@@ -24,9 +24,8 @@ import {
 } from '@/lib/conversionStatus'
 import { conversionLabel } from '@/lib/conversionLabel'
 import {
-  addConversionHistoryEntry,
-  clearConversionHistory,
-  loadConversionHistory,
+  clearLegacyConversionHistory,
+  loadLegacyConversionHistory,
   type ConversionHistoryEntry
 } from '@/lib/conversionHistory'
 import { resolvePathsToAdd } from '@/lib/detectInputFormat'
@@ -92,15 +91,27 @@ function App(): React.JSX.Element {
   const [isDragOver, setIsDragOver] = useState(false)
   const [saveNextToInput, setSaveNextToInputState] = useState(getSaveNextToInput)
   const [batchFailures, setBatchFailures] = useState<BatchFailure[]>([])
-  const [historyEntries, setHistoryEntries] = useState<ConversionHistoryEntry[]>(() =>
-    loadConversionHistory()
-  )
+  const [historyEntries, setHistoryEntries] = useState<ConversionHistoryEntry[]>([])
   const [appVersion, setAppVersion] = useState('…')
   const dragDepth = useRef(0)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
     window.api.getAppVersion().then(setAppVersion)
+
+    void (async () => {
+      let entries = await window.api.loadConversionHistory()
+
+      if (entries.length === 0) {
+        const legacy = loadLegacyConversionHistory()
+        if (legacy.length > 0) {
+          entries = await window.api.replaceConversionHistory(legacy)
+          clearLegacyConversionHistory()
+        }
+      }
+
+      setHistoryEntries(entries)
+    })()
   }, [])
 
   const outputOptions = formatOptions?.outputOptionsByInput[inputFormat] ?? []
@@ -142,31 +153,35 @@ function App(): React.JSX.Element {
     setSaveNextToInput(checked)
   }
 
-  const recordHistory = (
+  const recordHistory = async (
     inputPath: string,
     outputPath: string,
     outputByteLength: number
-  ): void => {
+  ): Promise<void> => {
     if (!formatOptions) return
 
-    setHistoryEntries(
-      addConversionHistoryEntry({
-        inputPath,
-        outputPath,
-        conversionId,
-        conversionLabel: conversionLabel(conversionId, formatOptions.formatLabels),
-        outputByteLength
-      })
-    )
+    const entries = await window.api.appendConversionHistory({
+      inputPath,
+      outputPath,
+      conversionId,
+      conversionLabel: conversionLabel(conversionId, formatOptions.formatLabels),
+      outputByteLength
+    })
+    setHistoryEntries(entries)
   }
 
-  const handleClearHistory = (): void => {
-    clearConversionHistory()
+  const handleClearHistory = async (): Promise<void> => {
+    await window.api.clearConversionHistory()
     setHistoryEntries([])
   }
 
   const handleOpenHistoryOutput = async (path: string): Promise<void> => {
     const result = await window.api.openPath(path)
+    if (!result.ok) toast.error(result.error)
+  }
+
+  const handleRevealHistoryOutput = async (path: string): Promise<void> => {
+    const result = await window.api.showItemInFolder(path)
     if (!result.ok) toast.error(result.error)
   }
 
@@ -395,7 +410,7 @@ function App(): React.JSX.Element {
         }
 
         setStatusByPath({ [file.path]: { state: 'success' } })
-        recordHistory(file.path, result.savedPath, result.outputByteLength)
+        await recordHistory(file.path, result.savedPath, result.outputByteLength)
         toast.success(`Saved ${file.fileName}`, {
           description: formatFileSize(result.outputByteLength)
         })
@@ -437,7 +452,7 @@ function App(): React.JSX.Element {
       setBatchOutputFolder(outputDir)
       for (const entry of result.results) {
         if (entry.ok) {
-          recordHistory(entry.inputPath, entry.savedPath, entry.outputByteLength)
+          await recordHistory(entry.inputPath, entry.savedPath, entry.outputByteLength)
         }
       }
       notifyBatchComplete(result.results)
@@ -668,6 +683,7 @@ function App(): React.JSX.Element {
             entries={historyEntries}
             formatFileSize={formatFileSize}
             onOpenOutput={handleOpenHistoryOutput}
+            onRevealOutput={handleRevealHistoryOutput}
             onClear={handleClearHistory}
           />
 

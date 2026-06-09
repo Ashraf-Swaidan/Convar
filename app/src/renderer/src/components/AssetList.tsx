@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { getErrorHint, type AppErrorCode } from '@/lib/errorHints'
 import { countStatuses, type FileConversionStatus } from '@/lib/conversionStatus'
-
-type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
+import type { ConversionId } from '@/lib/formatTypes'
 
 type AssetFile = {
   path: string

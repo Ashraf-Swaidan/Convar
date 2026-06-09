@@ -5,7 +5,11 @@ import {
   toConversionId,
   getFormatOptions,
   conversionMeta,
-  type ConversionId
+  outputOptionsByInput,
+  inputFormats,
+  type ConversionId,
+  type InputFileType,
+  type OutputFormat
 } from '../src/main/convert'
 
 function assert(condition: boolean, message: string): void {
@@ -14,9 +18,23 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-async function expectFormat(buffer: Buffer, format: 'png' | 'jpeg' | 'webp'): Promise<void> {
+async function expectFormat(
+  buffer: Buffer,
+  format: 'png' | 'jpeg' | 'webp' | 'avif'
+): Promise<void> {
   const meta = await sharp(buffer).metadata()
-  assert(meta.format === format, `Expected ${format}, got ${meta.format ?? 'unknown'}`)
+  const actual = meta.format ?? 'unknown'
+  const ok =
+    format === 'jpeg'
+      ? actual === 'jpeg'
+      : format === 'avif'
+        ? actual === 'avif' || actual === 'heif'
+        : actual === format
+  assert(ok, `Expected ${format}, got ${actual}`)
+}
+
+function sharpFormatFor(output: OutputFormat): 'png' | 'jpeg' | 'webp' | 'avif' {
+  return output === 'jpg' ? 'jpeg' : output
 }
 
 async function main(): Promise<void> {
@@ -27,33 +45,42 @@ async function main(): Promise<void> {
     .toBuffer()
 
   const jpg = await sharp(png).jpeg().toBuffer()
+  const webp = await sharp(png).webp().toBuffer()
 
-  const cases: Array<{ id: ConversionId; input: Buffer; format: 'png' | 'jpeg' | 'webp' }> = [
-    { id: 'png-webp', input: png, format: 'webp' },
-    { id: 'png-jpg', input: png, format: 'jpeg' },
-    { id: 'jpg-png', input: jpg, format: 'png' }
-  ]
+  const cases: Array<{ id: ConversionId; input: Buffer }> = []
 
-  for (const { id, input, format } of cases) {
+  for (const inputType of inputFormats) {
+    const input =
+      inputType === 'png' ? png : inputType === 'jpg' ? jpg : webp
+
+    for (const output of outputOptionsByInput[inputType]) {
+      cases.push({ id: `${inputType}-${output}` as ConversionId, input })
+    }
+  }
+
+  assert(cases.length === 9, `Expected 9 conversions, got ${cases.length}`)
+
+  for (const { id, input } of cases) {
     const output = await runConversion(input, id)
+    const meta = conversionMeta[id]
     assert(output.byteLength > 0, `${id} produced empty output`)
-    await expectFormat(output, format)
-    assert(
-      conversionMeta[id].outputExt === (format === 'jpeg' ? 'jpg' : format),
-      `${id} metadata outputExt mismatch`
-    )
+    await expectFormat(output, sharpFormatFor(meta.outputExt as OutputFormat))
   }
 
   assert(isValidInputFile('photo.png', 'png'), 'PNG path should validate')
   assert(!isValidInputFile('photo.jpg', 'png'), 'JPG path should not validate as PNG')
   assert(isValidInputFile('photo.jpeg', 'jpg'), 'JPEG path should validate as JPG input')
+  assert(isValidInputFile('photo.webp', 'webp'), 'WebP path should validate')
   assert(toConversionId('png', 'webp') === 'png-webp', 'toConversionId png-webp')
-  assert(toConversionId('jpg', 'webp') === null, 'jpg-webp should be invalid')
+  assert(toConversionId('jpg', 'webp') === 'jpg-webp', 'toConversionId jpg-webp')
+  assert(toConversionId('webp', 'avif') === 'webp-avif', 'toConversionId webp-avif')
+  assert(toConversionId('png', 'png') === null, 'png-png should be invalid')
 
   const options = getFormatOptions()
-  assert(options.inputFormats.join(',') === 'png,jpg', 'inputFormats')
-  assert(options.outputOptionsByInput.png.join(',') === 'webp,jpg', 'png outputs')
-  assert(options.outputOptionsByInput.jpg.join(',') === 'png', 'jpg outputs')
+  assert(options.inputFormats.join(',') === 'png,jpg,webp', 'inputFormats')
+  assert(options.outputOptionsByInput.png.join(',') === 'webp,jpg,avif', 'png outputs')
+  assert(options.outputOptionsByInput.jpg.join(',') === 'png,webp,avif', 'jpg outputs')
+  assert(options.outputOptionsByInput.webp.join(',') === 'png,jpg,avif', 'webp outputs')
 
   let corruptFailed = false
   try {

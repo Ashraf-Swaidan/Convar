@@ -1,10 +1,11 @@
-import { ChevronDown, ExternalLink } from 'lucide-react'
+import { ChevronDown, ExternalLink, FolderOpen } from 'lucide-react'
 import type { ConversionHistoryEntry } from '@/lib/conversionHistory'
 
 type ConversionHistoryProps = {
   entries: ConversionHistoryEntry[]
   formatFileSize: (bytes: number) => string
   onOpenOutput: (path: string) => void
+  onRevealOutput: (path: string) => void
   onClear: () => void
 }
 
@@ -24,6 +25,7 @@ export function ConversionHistory({
   entries,
   formatFileSize,
   onOpenOutput,
+  onRevealOutput,
   onClear
 }: ConversionHistoryProps): React.JSX.Element | null {
   if (entries.length === 0) return null
@@ -41,6 +43,8 @@ export function ConversionHistory({
             <li key={entry.id} className="flex items-center gap-2 py-2 pl-1">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-foreground/90">
+                  {fileNameFromPath(entry.inputPath)}
+                  <span className="font-normal text-muted-foreground"> → </span>
                   {fileNameFromPath(entry.outputPath)}
                 </p>
                 <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
@@ -48,14 +52,24 @@ export function ConversionHistory({
                   {formatWhen(entry.timestamp)}
                 </p>
               </div>
-              <button
-                type="button"
-                aria-label={`Open ${fileNameFromPath(entry.outputPath)}`}
-                onClick={() => onOpenOutput(entry.outputPath)}
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <ExternalLink className="size-3.5" strokeWidth={2} />
-              </button>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label={`Show ${fileNameFromPath(entry.outputPath)} in folder`}
+                  onClick={() => onRevealOutput(entry.outputPath)}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <FolderOpen className="size-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Open ${fileNameFromPath(entry.outputPath)}`}
+                  onClick={() => onOpenOutput(entry.outputPath)}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <ExternalLink className="size-3.5" strokeWidth={2} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>

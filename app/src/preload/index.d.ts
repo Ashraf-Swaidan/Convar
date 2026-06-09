@@ -1,8 +1,17 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
-type InputFormat = 'png' | 'jpg'
-type OutputFormat = 'webp' | 'jpg' | 'png'
+type ConversionId =
+  | 'png-webp'
+  | 'png-jpg'
+  | 'png-avif'
+  | 'jpg-png'
+  | 'jpg-webp'
+  | 'jpg-avif'
+  | 'webp-png'
+  | 'webp-jpg'
+  | 'webp-avif'
+type InputFormat = 'png' | 'jpg' | 'webp'
+type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
 
 type AppErrorCode =
   | 'unknown_conversion'
@@ -44,6 +53,18 @@ type BatchProgress = {
   fileName: string
 }
 
+type ConversionHistoryEntry = {
+  id: string
+  inputPath: string
+  outputPath: string
+  conversionId: ConversionId
+  conversionLabel: string
+  outputByteLength: number
+  timestamp: number
+}
+
+type NewConversionHistoryEntry = Omit<ConversionHistoryEntry, 'id' | 'timestamp'>
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -54,6 +75,15 @@ declare global {
       selectFiles: (conversionId: ConversionId) => Promise<string[] | null>
       selectOutputFolder: (defaultPath?: string) => Promise<string | null>
       openPath: (targetPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      showItemInFolder: (fullPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      loadConversionHistory: () => Promise<ConversionHistoryEntry[]>
+      appendConversionHistory: (
+        entry: NewConversionHistoryEntry
+      ) => Promise<ConversionHistoryEntry[]>
+      replaceConversionHistory: (
+        entries: ConversionHistoryEntry[]
+      ) => Promise<ConversionHistoryEntry[]>
+      clearConversionHistory: () => Promise<void>
       readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>
       convertAndSave: (

@@ -14,6 +14,14 @@ import {
   type ConversionMeta
 } from './convert'
 import { appError, toFailure, type AppErrorCode } from './errors'
+import {
+  appendHistory,
+  clearHistory,
+  loadHistory,
+  replaceHistory,
+  type ConversionHistoryEntry,
+  type NewHistoryEntry
+} from './history'
 
 type ResolvedConversion =
   | { ok: true; conversionId: ConversionId; meta: ConversionMeta }
@@ -73,6 +81,24 @@ app.whenReady().then(() => {
   ipcMain.handle('conversions:getFormatOptions', () => getFormatOptions())
 
   ipcMain.handle('app:getVersion', () => app.getVersion())
+
+  ipcMain.handle('history:load', () => loadHistory())
+
+  ipcMain.handle('history:append', (_, entry: NewHistoryEntry) => appendHistory(entry))
+
+  ipcMain.handle('history:replace', (_, entries: ConversionHistoryEntry[]) =>
+    replaceHistory(entries)
+  )
+
+  ipcMain.handle('history:clear', () => clearHistory())
+
+  ipcMain.handle('shell:showItemInFolder', (_, fullPath: string) => {
+    if (!fullPath) {
+      return { ok: false as const, error: 'No file path provided.' }
+    }
+    shell.showItemInFolder(fullPath)
+    return { ok: true as const }
+  })
 
   ipcMain.on('window:minimize', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()

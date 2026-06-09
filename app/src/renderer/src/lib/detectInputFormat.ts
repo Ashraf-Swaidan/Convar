@@ -4,6 +4,7 @@ export function detectInputFormat(filePath: string): InputFormat | null {
   const ext = filePath.split(/[/\\]/).pop()?.split('.').pop()?.toLowerCase()
   if (ext === 'png') return 'png'
   if (ext === 'jpg' || ext === 'jpeg') return 'jpg'
+  if (ext === 'webp') return 'webp'
   return null
 }
 
@@ -25,12 +26,12 @@ export function resolvePathsToAdd(
     if (paths.length === 0) {
       return { ok: false, message: 'No files to add.' }
     }
-    return { ok: false, message: 'Only PNG and JPG files are supported.' }
+    return { ok: false, message: 'Only PNG, JPG, and WebP files are supported.' }
   }
 
   const formats = new Set(supported.map((entry) => entry.format))
   if (formats.size > 1) {
-    return { ok: false, message: 'Add one format at a time — all PNG or all JPG.' }
+    return { ok: false, message: 'Add one format at a time — all PNG, JPG, or WebP.' }
   }
 
   const batchFormat = supported[0].format

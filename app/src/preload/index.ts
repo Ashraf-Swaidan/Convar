@@ -1,9 +1,18 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
-type InputFormat = 'png' | 'jpg'
-type OutputFormat = 'webp' | 'jpg' | 'png'
+type ConversionId =
+  | 'png-webp'
+  | 'png-jpg'
+  | 'png-avif'
+  | 'jpg-png'
+  | 'jpg-webp'
+  | 'jpg-avif'
+  | 'webp-png'
+  | 'webp-jpg'
+  | 'webp-avif'
+type InputFormat = 'png' | 'jpg' | 'webp'
+type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
 
 type AppErrorCode =
   | 'unknown_conversion'
@@ -47,6 +56,18 @@ type BatchProgress = {
   fileName: string
 }
 
+type ConversionHistoryEntry = {
+  id: string
+  inputPath: string
+  outputPath: string
+  conversionId: ConversionId
+  conversionLabel: string
+  outputByteLength: number
+  timestamp: number
+}
+
+type NewConversionHistoryEntry = Omit<ConversionHistoryEntry, 'id' | 'timestamp'>
+
 const api = {
   getFormatOptions: (): Promise<FormatOptions> =>
     ipcRenderer.invoke('conversions:getFormatOptions'),
@@ -59,6 +80,19 @@ const api = {
     ipcRenderer.invoke('dialog:selectOutputFolder', defaultPath),
   openPath: (targetPath: string): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('shell:openPath', targetPath),
+  showItemInFolder: (
+    fullPath: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('shell:showItemInFolder', fullPath),
+  loadConversionHistory: (): Promise<ConversionHistoryEntry[]> =>
+    ipcRenderer.invoke('history:load'),
+  appendConversionHistory: (
+    entry: NewConversionHistoryEntry
+  ): Promise<ConversionHistoryEntry[]> => ipcRenderer.invoke('history:append', entry),
+  replaceConversionHistory: (
+    entries: ConversionHistoryEntry[]
+  ): Promise<ConversionHistoryEntry[]> => ipcRenderer.invoke('history:replace', entries),
+  clearConversionHistory: (): Promise<void> => ipcRenderer.invoke('history:clear'),
   readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', filePath, conversionId),
   getFilePreview: (filePath: string, conversionId: ConversionId): Promise<PreviewResult> =>

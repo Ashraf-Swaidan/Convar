@@ -1,11 +1,20 @@
 import { extname } from 'path'
 import sharp from 'sharp'
 
-export type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
+export type InputFileType = 'png' | 'jpg' | 'webp'
 
-export type InputFileType = 'png' | 'jpg'
+export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
 
-export type OutputFormat = 'webp' | 'jpg' | 'png'
+export type ConversionId =
+  | 'png-webp'
+  | 'png-jpg'
+  | 'png-avif'
+  | 'jpg-png'
+  | 'jpg-webp'
+  | 'jpg-avif'
+  | 'webp-png'
+  | 'webp-jpg'
+  | 'webp-avif'
 
 type ConverterFn = (input: Buffer) => Promise<Buffer>
 
@@ -19,74 +28,103 @@ export type ConversionMeta = {
   conversionFailedError: string
 }
 
-export const inputTypeMeta: Record<
-  InputFileType,
-  { openFilterName: string; openExtensions: string[] }
-> = {
-  png: { openFilterName: 'PNG Images', openExtensions: ['png'] },
-  jpg: { openFilterName: 'JPEG Images', openExtensions: ['jpg', 'jpeg'] }
-}
-
-export async function convertPngToWebp(input: Buffer): Promise<Buffer> {
-  return sharp(input).webp().toBuffer()
-}
-
-export async function convertPngToJpg(input: Buffer): Promise<Buffer> {
-  return sharp(input).jpeg().toBuffer()
-}
-
-export async function convertJpgToPng(input: Buffer): Promise<Buffer> {
-  return sharp(input).png().toBuffer()
-}
-
-export const converters: Record<ConversionId, ConverterFn> = {
-  'png-webp': convertPngToWebp,
-  'png-jpg': convertPngToJpg,
-  'jpg-png': convertJpgToPng
-}
-
-export const conversionMeta: Record<ConversionId, ConversionMeta> = {
-  'png-webp': {
-    label: 'PNG → WebP',
-    inputType: 'png',
-    outputExt: 'webp',
-    saveFilterName: 'WebP Images',
-    saveExtensions: ['webp'],
-    invalidInputError: 'Invalid file type for PNG → WebP. Please select a PNG file.',
-    conversionFailedError: 'PNG → WebP conversion failed. The file may not be a valid PNG.'
-  },
-  'png-jpg': {
-    label: 'PNG → JPG',
-    inputType: 'png',
-    outputExt: 'jpg',
-    saveFilterName: 'JPEG Images',
-    saveExtensions: ['jpg', 'jpeg'],
-    invalidInputError: 'Invalid file type for PNG → JPG. Please select a PNG file.',
-    conversionFailedError: 'PNG → JPG conversion failed. The file may not be a valid PNG.'
-  },
-  'jpg-png': {
-    label: 'JPG → PNG',
-    inputType: 'jpg',
-    outputExt: 'png',
-    saveFilterName: 'PNG Images',
-    saveExtensions: ['png'],
-    invalidInputError: 'Invalid file type for JPG → PNG. Please select a JPG file.',
-    conversionFailedError: 'JPG → PNG conversion failed. The file may not be a valid JPG.'
-  }
-}
-
-export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
-  png: ['webp', 'jpg'],
-  jpg: ['png']
-}
-
 export const formatLabels: Record<InputFileType | OutputFormat, string> = {
   png: 'PNG',
   jpg: 'JPG',
-  webp: 'WebP'
+  webp: 'WebP',
+  avif: 'AVIF'
 }
 
-export const inputFormats: InputFileType[] = ['png', 'jpg']
+export const inputTypeMeta: Record<
+  InputFileType,
+  { openFilterName: string; openExtensions: string[]; extensions: string[] }
+> = {
+  png: { openFilterName: 'PNG Images', openExtensions: ['png'], extensions: ['.png'] },
+  jpg: {
+    openFilterName: 'JPEG Images',
+    openExtensions: ['jpg', 'jpeg'],
+    extensions: ['.jpg', '.jpeg']
+  },
+  webp: { openFilterName: 'WebP Images', openExtensions: ['webp'], extensions: ['.webp'] }
+}
+
+const outputTypeMeta: Record<
+  OutputFormat,
+  { saveFilterName: string; saveExtensions: string[]; ext: string }
+> = {
+  png: { saveFilterName: 'PNG Images', saveExtensions: ['png'], ext: 'png' },
+  jpg: { saveFilterName: 'JPEG Images', saveExtensions: ['jpg', 'jpeg'], ext: 'jpg' },
+  webp: { saveFilterName: 'WebP Images', saveExtensions: ['webp'], ext: 'webp' },
+  avif: { saveFilterName: 'AVIF Images', saveExtensions: ['avif'], ext: 'avif' }
+}
+
+export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
+  png: ['webp', 'jpg', 'avif'],
+  jpg: ['png', 'webp', 'avif'],
+  webp: ['png', 'jpg', 'avif']
+}
+
+export const inputFormats: InputFileType[] = ['png', 'jpg', 'webp']
+
+function encodeOutput(image: sharp.Sharp, output: OutputFormat): sharp.Sharp {
+  switch (output) {
+    case 'png':
+      return image.png()
+    case 'jpg':
+      return image.jpeg()
+    case 'webp':
+      return image.webp()
+    case 'avif':
+      return image.avif()
+  }
+}
+
+async function convertToOutput(input: Buffer, output: OutputFormat): Promise<Buffer> {
+  return encodeOutput(sharp(input), output).toBuffer()
+}
+
+function conversionIdFor(input: InputFileType, output: OutputFormat): ConversionId {
+  return `${input}-${output}` as ConversionId
+}
+
+function buildConversionMeta(input: InputFileType, output: OutputFormat): ConversionMeta {
+  const inputLabel = formatLabels[input]
+  const outputLabel = formatLabels[output]
+  const out = outputTypeMeta[output]
+
+  return {
+    label: `${inputLabel} → ${outputLabel}`,
+    inputType: input,
+    outputExt: out.ext,
+    saveFilterName: out.saveFilterName,
+    saveExtensions: out.saveExtensions,
+    invalidInputError: `Invalid file type for ${inputLabel} → ${outputLabel}. Please select a ${inputLabel} file.`,
+    conversionFailedError: `${inputLabel} → ${outputLabel} conversion failed. The file may not be a valid ${inputLabel}.`
+  }
+}
+
+function buildRegistry(): {
+  converters: Record<ConversionId, ConverterFn>
+  conversionMeta: Record<ConversionId, ConversionMeta>
+} {
+  const converters = {} as Record<ConversionId, ConverterFn>
+  const conversionMeta = {} as Record<ConversionId, ConversionMeta>
+
+  for (const input of inputFormats) {
+    for (const output of outputOptionsByInput[input]) {
+      const id = conversionIdFor(input, output)
+      converters[id] = (buffer) => convertToOutput(buffer, output)
+      conversionMeta[id] = buildConversionMeta(input, output)
+    }
+  }
+
+  return { converters, conversionMeta }
+}
+
+const registry = buildRegistry()
+
+export const converters = registry.converters
+export const conversionMeta = registry.conversionMeta
 
 export type FormatOptions = {
   inputFormats: InputFileType[]
@@ -116,12 +154,7 @@ export function toConversionId(
 
 export function isValidInputFile(filePath: string, inputType: InputFileType): boolean {
   const ext = extname(filePath).toLowerCase()
-
-  if (inputType === 'png') {
-    return ext === '.png'
-  }
-
-  return ext === '.jpg' || ext === '.jpeg'
+  return inputTypeMeta[inputType].extensions.includes(ext)
 }
 
 export function getOpenDialogFilters(inputType: InputFileType): Electron.FileFilter[] {

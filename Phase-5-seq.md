@@ -1,6 +1,6 @@
 # Phase 5 — Conversion History
 
-**Status: In progress (Step 1)**
+**Status: Complete (Step 2)**
 
 **Prerequisite:** Phase UX largely complete (`Phase-UX-seq.md`)
 
@@ -20,11 +20,17 @@ Users can see what they recently converted and reopen outputs — without a data
 * Open output file · Clear history
 * Version footer (`app.getVersion()`)
 
-## Step 2 — Later (only if needed)
+## Step 2 — Disk persistence + detail ✅
 
-* Persist across reinstall (userData JSON file)
-* Show input → output paths in detail
+* History stored in `userData/conversion-history.json`
+* One-time migration from `localStorage`
+* Input → output filenames in list
+* Open file · Show in folder
+
+## Later (only if needed)
+
 * Filter / search
+* SQLite if history grows beyond simple JSON
 
 ---
 

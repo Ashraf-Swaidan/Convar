@@ -10,12 +10,13 @@ export type ConversionHistoryEntry = {
   timestamp: number
 }
 
-const KEY = 'convar:conversionHistory'
-const MAX_ENTRIES = 20
+export type NewConversionHistoryEntry = Omit<ConversionHistoryEntry, 'id' | 'timestamp'>
 
-export function loadConversionHistory(): ConversionHistoryEntry[] {
+const LEGACY_KEY = 'convar:conversionHistory'
+
+export function loadLegacyConversionHistory(): ConversionHistoryEntry[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(LEGACY_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as ConversionHistoryEntry[]
     return Array.isArray(parsed) ? parsed : []
@@ -24,23 +25,6 @@ export function loadConversionHistory(): ConversionHistoryEntry[] {
   }
 }
 
-export function saveConversionHistory(entries: ConversionHistoryEntry[]): void {
-  localStorage.setItem(KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
-}
-
-export function addConversionHistoryEntry(
-  entry: Omit<ConversionHistoryEntry, 'id' | 'timestamp'>
-): ConversionHistoryEntry[] {
-  const next: ConversionHistoryEntry = {
-    ...entry,
-    id: crypto.randomUUID(),
-    timestamp: Date.now()
-  }
-  const entries = [next, ...loadConversionHistory()].slice(0, MAX_ENTRIES)
-  saveConversionHistory(entries)
-  return entries
-}
-
-export function clearConversionHistory(): void {
-  localStorage.removeItem(KEY)
+export function clearLegacyConversionHistory(): void {
+  localStorage.removeItem(LEGACY_KEY)
 }

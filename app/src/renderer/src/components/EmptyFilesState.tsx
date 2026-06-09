@@ -8,7 +8,7 @@ export function EmptyFilesState(): React.JSX.Element {
       </div>
       <p className="text-sm font-medium text-foreground/85">No files yet</p>
       <p className="max-w-[220px] text-xs leading-relaxed text-muted-foreground">
-        Drop images here or use Select Files below
+        Drop PNG, JPG, or WebP files here, or use Select Files
       </p>
     </div>
   )

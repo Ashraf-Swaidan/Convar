@@ -51,7 +51,8 @@ declare global {
       getFormatOptions: () => Promise<FormatOptions>
       selectFile: (conversionId: ConversionId) => Promise<string | null>
       selectFiles: (conversionId: ConversionId) => Promise<string[] | null>
-      selectOutputFolder: () => Promise<string | null>
+      selectOutputFolder: (defaultPath?: string) => Promise<string | null>
+      openPath: (targetPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
       readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>
       convertAndSave: (filePath: string, conversionId: ConversionId) => Promise<ConvertSaveResult>

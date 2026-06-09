@@ -129,10 +129,11 @@ app.whenReady().then(() => {
     return result.filePaths
   })
 
-  ipcMain.handle('dialog:selectOutputFolder', async (event) => {
+  ipcMain.handle('dialog:selectOutputFolder', async (event, defaultPath?: string) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
-      properties: ['openDirectory', 'createDirectory']
+      properties: ['openDirectory', 'createDirectory'],
+      ...(defaultPath ? { defaultPath } : {})
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -140,6 +141,19 @@ app.whenReady().then(() => {
     }
 
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('shell:openPath', async (_, targetPath: string) => {
+    if (!targetPath) {
+      return { ok: false as const, error: 'No folder path provided.' }
+    }
+
+    const error = await shell.openPath(targetPath)
+    if (error) {
+      return { ok: false as const, error }
+    }
+
+    return { ok: true as const }
   })
 
   ipcMain.handle('file:read', async (_, filePath: string, conversionId: ConversionId) => {

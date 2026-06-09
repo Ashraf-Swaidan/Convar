@@ -54,8 +54,10 @@ const api = {
     ipcRenderer.invoke('dialog:selectFile', conversionId),
   selectFiles: (conversionId: ConversionId): Promise<string[] | null> =>
     ipcRenderer.invoke('dialog:selectFiles', conversionId),
-  selectOutputFolder: (): Promise<string | null> =>
-    ipcRenderer.invoke('dialog:selectOutputFolder'),
+  selectOutputFolder: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectOutputFolder', defaultPath),
+  openPath: (targetPath: string): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('shell:openPath', targetPath),
   readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', filePath, conversionId),
   getFilePreview: (filePath: string, conversionId: ConversionId): Promise<PreviewResult> =>

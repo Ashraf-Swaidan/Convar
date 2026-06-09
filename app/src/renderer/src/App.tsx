@@ -18,6 +18,10 @@ import {
   countStatuses,
   type FileConversionStatus
 } from '@/lib/conversionStatus'
+import {
+  getRememberedOutputFolder,
+  rememberOutputFolder
+} from '@/lib/outputFolder'
 
 type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
@@ -73,6 +77,7 @@ function App(): React.JSX.Element {
   const [isConverting, setIsConverting] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [assetListExpanded, setAssetListExpanded] = useState(false)
+  const [batchOutputFolder, setBatchOutputFolder] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
@@ -90,6 +95,7 @@ function App(): React.JSX.Element {
     setBatchProgress(null)
     setError(null)
     setAssetListExpanded(false)
+    setBatchOutputFolder(null)
   }
 
   const handleInputFormatChange = (value: InputFormat): void => {
@@ -203,8 +209,12 @@ function App(): React.JSX.Element {
         return
       }
 
-      const outputDir = await window.api.selectOutputFolder()
+      const outputDir = await window.api.selectOutputFolder(
+        getRememberedOutputFolder() ?? undefined
+      )
       if (!outputDir) return
+
+      rememberOutputFolder(outputDir)
 
       const stopProgress = window.api.onBatchProgress(setBatchProgress)
       const result = await window.api.convertAndSaveBatch(
@@ -222,6 +232,7 @@ function App(): React.JSX.Element {
 
       setStatusByPath(buildStatusMapFromBatch(result.results))
       setAssetListExpanded(true)
+      setBatchOutputFolder(outputDir)
       notifyBatchComplete(result.results)
     } finally {
       setIsConverting(false)
@@ -253,6 +264,19 @@ function App(): React.JSX.Element {
     setAssetListExpanded(true)
     notifyBatchComplete(results)
     toast.message('Dev preview: mixed batch results')
+  }
+
+  const successCount = Object.values(statusByPath).filter((s) => s.state === 'success').length
+  const showOpenOutputFolder =
+    batchOutputFolder !== null && successCount > 0 && selectedFiles.length > 1
+
+  const handleOpenOutputFolder = async (): Promise<void> => {
+    if (!batchOutputFolder) return
+
+    const result = await window.api.openPath(batchOutputFolder)
+    if (!result.ok) {
+      toast.error(result.error)
+    }
   }
 
   const content = !formatOptions ? (
@@ -345,6 +369,12 @@ function App(): React.JSX.Element {
               ? `Convert ${selectedFiles.length} files`
               : 'Convert'}
         </Button>
+
+        {showOpenOutputFolder && (
+          <Button type="button" variant="outline" onClick={handleOpenOutputFolder}>
+            Open output folder
+          </Button>
+        )}
 
         {error !== null && <AppErrorDisplay error={error} />}
 

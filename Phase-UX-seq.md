@@ -1,6 +1,6 @@
 # Phase UX — Polish & Experience
 
-**Status: In progress (Step 1 complete — Phase 4 codes wired in UI)**
+**Status: In progress (Step 2 complete)**
 
 **Prerequisite:** Phase 4 complete (`Phase-4-seq.md`)
 
@@ -64,10 +64,11 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * Collage badges on first 3 previews
 * Dev-only “preview mixed results UI” button for testing failure states
 
-### Step 2 — Output folder memory + open folder
+### Step 2 — Output folder memory + open folder ✅
 
-* Remember last output folder (sessionStorage)
-* **Open output folder** button after batch completes
+* Remember last output folder (`sessionStorage`)
+* Folder dialog opens at last location (`defaultPath`)
+* **Open output folder** button after batch with ≥1 success
 
 ### Step 3 — Drag-and-drop
 

@@ -1,5 +1,5 @@
 import { Minus, Square, X } from 'lucide-react'
-import darkLogo from '@/assets/convar-dark-logo.png'
+import logo from '@/assets/convar-logo.png'
 
 const isMac = window.api.platform === 'darwin'
 
@@ -10,7 +10,7 @@ export function TitleBar(): React.JSX.Element {
         className={`app-no-drag flex items-center gap-2.5 ${isMac ? 'pl-16' : ''}`}
       >
         <img
-          src={darkLogo}
+          src={logo}
           alt=""
           className="size-9 rounded-[10px] object-cover"
           draggable={false}

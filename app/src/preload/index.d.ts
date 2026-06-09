@@ -6,7 +6,12 @@ declare global {
     api: {
       selectFile: () => Promise<string | null>
       readFile: (filePath: string) => Promise<{ byteLength: number }>
-      convertPngToWebp: (filePath: string) => Promise<{ outputByteLength: number }>
+      convertAndSaveWebp: (
+        filePath: string
+      ) => Promise<
+        | { canceled: true }
+        | { canceled: false; savedPath: string; outputByteLength: number }
+      >
     }
   }
 }

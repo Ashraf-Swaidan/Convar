@@ -1,8 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { readFileBuffer } from './file'
+import { readFileBuffer, writeFileBuffer } from './file'
 import { convertPngToWebp } from './convert'
 
 function createWindow(): void {
@@ -70,10 +70,32 @@ app.whenReady().then(() => {
     return { byteLength: buffer.byteLength }
   })
 
-  ipcMain.handle('convert:pngToWebp', async (_, filePath: string) => {
-    const input = await readFileBuffer(filePath)
+  ipcMain.handle('convert:saveWebp', async (event, inputPath: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const input = await readFileBuffer(inputPath)
     const output = await convertPngToWebp(input)
-    return { outputByteLength: output.byteLength }
+
+    const defaultPath = join(
+      dirname(inputPath),
+      `${basename(inputPath, extname(inputPath))}.webp`
+    )
+
+    const result = await dialog.showSaveDialog(window!, {
+      defaultPath,
+      filters: [{ name: 'WebP Images', extensions: ['webp'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    await writeFileBuffer(result.filePath, output)
+
+    return {
+      canceled: false as const,
+      savedPath: result.filePath,
+      outputByteLength: output.byteLength
+    }
   })
 
   createWindow()

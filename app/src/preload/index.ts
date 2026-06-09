@@ -5,8 +5,12 @@ const api = {
   selectFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFile'),
   readFile: (filePath: string): Promise<{ byteLength: number }> =>
     ipcRenderer.invoke('file:read', filePath),
-  convertPngToWebp: (filePath: string): Promise<{ outputByteLength: number }> =>
-    ipcRenderer.invoke('convert:pngToWebp', filePath)
+  convertAndSaveWebp: (
+    filePath: string
+  ): Promise<
+    | { canceled: true }
+    | { canceled: false; savedPath: string; outputByteLength: number }
+  > => ipcRenderer.invoke('convert:saveWebp', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

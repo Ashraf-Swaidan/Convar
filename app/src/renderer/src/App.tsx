@@ -11,6 +11,7 @@ function formatFileSize(bytes: number): string {
 function App(): React.JSX.Element {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [fileSize, setFileSize] = useState<number | null>(null)
+  const [savedPath, setSavedPath] = useState<string | null>(null)
   const [convertedSize, setConvertedSize] = useState<number | null>(null)
 
   const handleSelectFile = async (): Promise<void> => {
@@ -18,6 +19,7 @@ function App(): React.JSX.Element {
     if (!filePath) return
 
     setSelectedFilePath(filePath)
+    setSavedPath(null)
     setConvertedSize(null)
 
     const { byteLength } = await window.api.readFile(filePath)
@@ -27,8 +29,11 @@ function App(): React.JSX.Element {
   const handleConvert = async (): Promise<void> => {
     if (!selectedFilePath) return
 
-    const { outputByteLength } = await window.api.convertPngToWebp(selectedFilePath)
-    setConvertedSize(outputByteLength)
+    const result = await window.api.convertAndSaveWebp(selectedFilePath)
+    if (result.canceled) return
+
+    setSavedPath(result.savedPath)
+    setConvertedSize(result.outputByteLength)
   }
 
   return (
@@ -53,15 +58,15 @@ function App(): React.JSX.Element {
           <p className="text-sm text-muted-foreground">File size: {formatFileSize(fileSize)}</p>
         )}
 
-        {convertedSize !== null && (
-          <p className="text-sm text-muted-foreground">
-            Converted size: {formatFileSize(convertedSize)} (in memory — not saved yet)
-          </p>
-        )}
-
         <Button type="button" disabled={!selectedFilePath} onClick={handleConvert}>
           Convert
         </Button>
+
+        {savedPath !== null && convertedSize !== null && (
+          <p className="text-sm text-muted-foreground">
+            Saved {formatFileSize(convertedSize)} to: {savedPath}
+          </p>
+        )}
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer } from './file'
+import { convertPngToWebp } from './convert'
 
 function createWindow(): void {
   // Create the browser window.
@@ -67,6 +68,12 @@ app.whenReady().then(() => {
   ipcMain.handle('file:read', async (_, filePath: string) => {
     const buffer = await readFileBuffer(filePath)
     return { byteLength: buffer.byteLength }
+  })
+
+  ipcMain.handle('convert:pngToWebp', async (_, filePath: string) => {
+    const input = await readFileBuffer(filePath)
+    const output = await convertPngToWebp(input)
+    return { outputByteLength: output.byteLength }
   })
 
   createWindow()

@@ -11,15 +11,24 @@ function formatFileSize(bytes: number): string {
 function App(): React.JSX.Element {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [fileSize, setFileSize] = useState<number | null>(null)
+  const [convertedSize, setConvertedSize] = useState<number | null>(null)
 
   const handleSelectFile = async (): Promise<void> => {
     const filePath = await window.api.selectFile()
     if (!filePath) return
 
     setSelectedFilePath(filePath)
+    setConvertedSize(null)
 
     const { byteLength } = await window.api.readFile(filePath)
     setFileSize(byteLength)
+  }
+
+  const handleConvert = async (): Promise<void> => {
+    if (!selectedFilePath) return
+
+    const { outputByteLength } = await window.api.convertPngToWebp(selectedFilePath)
+    setConvertedSize(outputByteLength)
   }
 
   return (
@@ -44,7 +53,13 @@ function App(): React.JSX.Element {
           <p className="text-sm text-muted-foreground">File size: {formatFileSize(fileSize)}</p>
         )}
 
-        <Button type="button" disabled={!selectedFilePath}>
+        {convertedSize !== null && (
+          <p className="text-sm text-muted-foreground">
+            Converted size: {formatFileSize(convertedSize)} (in memory — not saved yet)
+          </p>
+        )}
+
+        <Button type="button" disabled={!selectedFilePath} onClick={handleConvert}>
           Convert
         </Button>
       </div>

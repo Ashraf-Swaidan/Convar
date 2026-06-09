@@ -1,6 +1,6 @@
 # Phase UX — Polish & Experience
 
-**Status: Planned (after Phase 4)**
+**Status: In progress (Step 1 complete — Phase 4 codes wired in UI)**
 
 **Prerequisite:** Phase 4 complete (`Phase-4-seq.md`)
 
@@ -47,14 +47,37 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 
 ---
 
-## Sequence (when started)
+## Sequence
 
-1. Error + success UI components (uses Phase 4 codes)
-2. Batch results panel upgrade
-3. Output folder memory + open folder
-4. Drag-and-drop
-5. Visual pass (typography, spacing, dark mode check)
-6. Build / package smoke test
+### Step 0 — Wire Phase 4 codes (bridge) ✅
+
+* `lib/errorHints.ts` — map `AppErrorCode` → title + hint
+* `AppErrorDisplay` — structured single error card
+* `BatchFailureSummary` — group batch failures by `code`
+* App stores `{ code, message }` instead of plain strings
+
+### Step 1 — Success UI + batch results panel
+
+* Success card for single-file save (green border, path copy-friendly)
+* Batch success summary with output folder path
+* Per-file ✓ / ✗ in file list after batch
+
+### Step 2 — Output folder memory + open folder
+
+* Remember last output folder (sessionStorage)
+* **Open output folder** button after batch completes
+
+### Step 3 — Drag-and-drop
+
+* Drop files onto the window to add to selection
+
+### Step 4 — Visual pass
+
+* Typography, spacing, empty states, dark mode check
+
+### Step 5 — Build / package smoke test
+
+* `npm run build:win`, app icon, window title
 
 ---
 

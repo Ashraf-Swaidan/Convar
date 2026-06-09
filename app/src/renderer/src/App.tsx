@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { AppErrorDisplay } from '@/components/AppErrorDisplay'
+import { BatchFailureSummary } from '@/components/BatchFailureSummary'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -7,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { appError, type AppError, type AppErrorCode, type BatchFailure } from '@/lib/errorHints'
 
 type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
@@ -27,7 +30,7 @@ type SelectedFile = {
 
 type BatchFileResult =
   | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
-  | { inputPath: string; ok: false; error: string; code: string }
+  | { inputPath: string; ok: false; error: string; code: AppErrorCode }
 
 type BatchProgress = {
   current: number
@@ -59,7 +62,7 @@ function App(): React.JSX.Element {
   const [batchResults, setBatchResults] = useState<BatchFileResult[] | null>(null)
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
   const [isConverting, setIsConverting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AppError | null>(null)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
@@ -104,7 +107,7 @@ function App(): React.JSX.Element {
       const readResult = await window.api.readFile(filePath, id)
       if (!readResult.ok) {
         clearFileState()
-        setError(readResult.error)
+        setError({ code: readResult.code, message: readResult.error })
         return false
       }
 
@@ -143,7 +146,7 @@ function App(): React.JSX.Element {
     clearResultState()
 
     if (selectedFiles.length === 0) {
-      setError('No files selected.')
+      setError(appError('no_files', 'No files selected.'))
       return
     }
 
@@ -156,7 +159,7 @@ function App(): React.JSX.Element {
         if ('canceled' in result) return
 
         if (!result.ok) {
-          setError(result.error)
+          setError({ code: result.code, message: result.error })
           return
         }
 
@@ -177,7 +180,7 @@ function App(): React.JSX.Element {
       stopProgress()
 
       if (!result.ok) {
-        setError(result.error)
+        setError({ code: result.code, message: result.error })
         return
       }
 
@@ -198,7 +201,9 @@ function App(): React.JSX.Element {
 
   const firstPreview = selectedFiles.find((file) => file.previewUrl)?.previewUrl ?? null
   const succeededCount = batchResults?.filter((result) => result.ok).length ?? 0
-  const failedResults = batchResults?.filter((result) => !result.ok) ?? []
+  const failedResults: BatchFailure[] =
+    batchResults?.filter((result): result is Extract<BatchFileResult, { ok: false }> => !result.ok) ??
+    []
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center p-6">
@@ -300,7 +305,7 @@ function App(): React.JSX.Element {
               : 'Convert'}
         </Button>
 
-        {error !== null && <p className="text-sm text-destructive">{error}</p>}
+        {error !== null && <AppErrorDisplay error={error} />}
 
         {savedPath !== null && convertedSize !== null && (
           <p className="text-sm text-muted-foreground">
@@ -309,18 +314,12 @@ function App(): React.JSX.Element {
         )}
 
         {batchResults !== null && (
-          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <p>
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="text-muted-foreground">
               Batch complete: {succeededCount} succeeded, {failedResults.length} failed
             </p>
             {failedResults.length > 0 && (
-              <ul className="space-y-1 text-destructive">
-                {failedResults.map((result) => (
-                  <li key={result.inputPath} className="truncate">
-                    {fileNameFromPath(result.inputPath)}: {result.error}
-                  </li>
-                ))}
-              </ul>
+              <BatchFailureSummary failures={failedResults} fileNameFromPath={fileNameFromPath} />
             )}
           </div>
         )}

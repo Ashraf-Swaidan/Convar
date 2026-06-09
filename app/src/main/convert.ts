@@ -1,3 +1,4 @@
+import { extname } from 'path'
 import sharp from 'sharp'
 
 export type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
@@ -13,6 +14,14 @@ export type ConversionMeta = {
   saveExtensions: string[]
   invalidInputError: string
   conversionFailedError: string
+}
+
+export const inputTypeMeta: Record<
+  InputFileType,
+  { openFilterName: string; openExtensions: string[] }
+> = {
+  png: { openFilterName: 'PNG Images', openExtensions: ['png'] },
+  jpg: { openFilterName: 'JPEG Images', openExtensions: ['jpg', 'jpeg'] }
 }
 
 export async function convertPngToWebp(input: Buffer): Promise<Buffer> {
@@ -58,6 +67,21 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     invalidInputError: 'Invalid file type. Please select a JPG file.',
     conversionFailedError: 'Conversion failed. The file may not be a valid JPG.'
   }
+}
+
+export function isValidInputFile(filePath: string, inputType: InputFileType): boolean {
+  const ext = extname(filePath).toLowerCase()
+
+  if (inputType === 'png') {
+    return ext === '.png'
+  }
+
+  return ext === '.jpg' || ext === '.jpeg'
+}
+
+export function getOpenDialogFilters(inputType: InputFileType): Electron.FileFilter[] {
+  const meta = inputTypeMeta[inputType]
+  return [{ name: meta.openFilterName, extensions: meta.openExtensions }]
 }
 
 export async function runConversion(input: Buffer, conversionId: ConversionId): Promise<Buffer> {

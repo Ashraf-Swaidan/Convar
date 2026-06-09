@@ -1,7 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-type InputFileType = 'png' | 'jpg'
-
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 
 type ReadFileResult =
@@ -17,8 +15,8 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      selectFile: (inputType: InputFileType) => Promise<string | null>
-      readFile: (filePath: string, inputType: InputFileType) => Promise<ReadFileResult>
+      selectFile: (conversionId: ConversionId) => Promise<string | null>
+      readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       convertAndSave: (filePath: string, conversionId: ConversionId) => Promise<ConvertSaveResult>
     }
   }

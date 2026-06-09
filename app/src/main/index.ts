@@ -3,23 +3,14 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
-import { runConversion, conversionMeta, isConversionId, type ConversionId } from './convert'
-
-type InputFileType = 'png' | 'jpg'
-
-function isPngFile(filePath: string): boolean {
-  return extname(filePath).toLowerCase() === '.png'
-}
-
-function isJpgFile(filePath: string): boolean {
-  const ext = extname(filePath).toLowerCase()
-  return ext === '.jpg' || ext === '.jpeg'
-}
-
-const openDialogFilters: Record<InputFileType, Electron.FileFilter[]> = {
-  png: [{ name: 'PNG Images', extensions: ['png'] }],
-  jpg: [{ name: 'JPEG Images', extensions: ['jpg', 'jpeg'] }]
-}
+import {
+  runConversion,
+  conversionMeta,
+  isConversionId,
+  isValidInputFile,
+  getOpenDialogFilters,
+  type ConversionId
+} from './convert'
 
 function createWindow(): void {
   // Create the browser window.
@@ -67,11 +58,16 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('dialog:selectFile', async (event, inputType: InputFileType) => {
+  ipcMain.handle('dialog:selectFile', async (event, conversionId: ConversionId) => {
+    if (!isConversionId(conversionId)) {
+      return null
+    }
+
+    const meta = conversionMeta[conversionId]
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
       properties: ['openFile'],
-      filters: openDialogFilters[inputType]
+      filters: getOpenDialogFilters(meta.inputType)
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -81,17 +77,19 @@ app.whenReady().then(() => {
     return result.filePaths[0]
   })
 
-  ipcMain.handle('file:read', async (_, filePath: string, inputType: InputFileType) => {
+  ipcMain.handle('file:read', async (_, filePath: string, conversionId: ConversionId) => {
+    if (!isConversionId(conversionId)) {
+      return { ok: false as const, error: 'Unknown conversion.' }
+    }
+
+    const meta = conversionMeta[conversionId]
+
     if (!filePath) {
       return { ok: false as const, error: 'No file selected.' }
     }
 
-    if (inputType === 'png' && !isPngFile(filePath)) {
-      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
-    }
-
-    if (inputType === 'jpg' && !isJpgFile(filePath)) {
-      return { ok: false as const, error: 'Invalid file type. Please select a JPG file.' }
+    if (!isValidInputFile(filePath, meta.inputType)) {
+      return { ok: false as const, error: meta.invalidInputError }
     }
 
     try {
@@ -115,11 +113,7 @@ app.whenReady().then(() => {
         return { ok: false as const, error: 'No file selected.' }
       }
 
-      if (meta.inputType === 'png' && !isPngFile(inputPath)) {
-        return { ok: false as const, error: meta.invalidInputError }
-      }
-
-      if (meta.inputType === 'jpg' && !isJpgFile(inputPath)) {
+      if (!isValidInputFile(inputPath, meta.inputType)) {
         return { ok: false as const, error: meta.invalidInputError }
       }
 

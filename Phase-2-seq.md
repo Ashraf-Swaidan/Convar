@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: In progress (Steps 1–4 complete)**
+**Status: In progress (Steps 1–5 complete)**
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -191,7 +191,7 @@ Checkpoint:
 
 ---
 
-### Step 5 — Generalize Validation + Dialogs
+### Step 5 — Generalize Validation + Dialogs ✅
 
 Extract format rules from hardcoded `isPngFile()`:
 

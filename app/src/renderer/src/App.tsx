@@ -20,15 +20,15 @@ function App(): React.JSX.Element {
   const [convertedSize, setConvertedSize] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSelectFile = async (type: InputFileType): Promise<void> => {
+  const handleSelectFile = async (conversionId: ConversionId): Promise<void> => {
     setError(null)
     setSavedPath(null)
     setConvertedSize(null)
 
-    const filePath = await window.api.selectFile(type)
+    const filePath = await window.api.selectFile(conversionId)
     if (!filePath) return
 
-    const readResult = await window.api.readFile(filePath, type)
+    const readResult = await window.api.readFile(filePath, conversionId)
     if (!readResult.ok) {
       setInputType(null)
       setSelectedFilePath(null)
@@ -37,7 +37,7 @@ function App(): React.JSX.Element {
       return
     }
 
-    setInputType(type)
+    setInputType(conversionId.startsWith('png') ? 'png' : 'jpg')
     setSelectedFilePath(filePath)
     setFileSize(readResult.byteLength)
   }
@@ -74,10 +74,10 @@ function App(): React.JSX.Element {
         </p>
 
         <div className="flex gap-2">
-          <Button type="button" onClick={() => handleSelectFile('png')}>
+          <Button type="button" onClick={() => handleSelectFile('png-webp')}>
             Select PNG
           </Button>
-          <Button type="button" variant="outline" onClick={() => handleSelectFile('jpg')}>
+          <Button type="button" variant="outline" onClick={() => handleSelectFile('jpg-png')}>
             Select JPG
           </Button>
         </div>

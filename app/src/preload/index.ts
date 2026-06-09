@@ -1,8 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-type InputFileType = 'png' | 'jpg'
-
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 
 type ReadFileResult =
@@ -15,10 +13,10 @@ type ConvertSaveResult =
   | { canceled: true }
 
 const api = {
-  selectFile: (inputType: InputFileType): Promise<string | null> =>
-    ipcRenderer.invoke('dialog:selectFile', inputType),
-  readFile: (filePath: string, inputType: InputFileType): Promise<ReadFileResult> =>
-    ipcRenderer.invoke('file:read', filePath, inputType),
+  selectFile: (conversionId: ConversionId): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectFile', conversionId),
+  readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>
+    ipcRenderer.invoke('file:read', filePath, conversionId),
   convertAndSave: (filePath: string, conversionId: ConversionId): Promise<ConvertSaveResult> =>
     ipcRenderer.invoke('convert:save', filePath, conversionId)
 }

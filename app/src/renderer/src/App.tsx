@@ -27,10 +27,10 @@ import {
   loadLegacyConversionHistory,
   type ConversionHistoryEntry
 } from '@/lib/conversionHistory'
-import { resolvePathsToAdd } from '@/lib/detectInputFormat'
-import { outputFormatHints } from '@/lib/formatHints'
+import { outputFormatHints, supportedInputSummary } from '@/lib/formatHints'
+import { HEIC_PREVIEW_PLACEHOLDER, isHeicPath } from '@/lib/heicPreview'
 import { historyMetaForFile } from '@/lib/historyMeta'
-import type { OutputFormat } from '@/lib/formatTypes'
+import type { OutputFormat, OutputLayout } from '@/lib/formatTypes'
 import {
   getRememberedOutputFolder,
   rememberOutputFolder
@@ -87,6 +87,8 @@ function App(): React.JSX.Element {
   const [batchFailures, setBatchFailures] = useState<BatchFailure[]>([])
   const [historyEntries, setHistoryEntries] = useState<ConversionHistoryEntry[]>([])
   const [appVersion, setAppVersion] = useState('…')
+  const [inputRoot, setInputRoot] = useState<string | null>(null)
+  const [outputLayout, setOutputLayout] = useState<OutputLayout>('flat')
   const dragDepth = useRef(0)
 
   useEffect(() => {
@@ -110,6 +112,7 @@ function App(): React.JSX.Element {
 
   const clearFileState = (): void => {
     setSelectedFiles([])
+    setInputRoot(null)
   }
 
   const clearResultState = (): void => {
@@ -185,30 +188,34 @@ function App(): React.JSX.Element {
   const loadPreviews = async (files: SelectedFile[]): Promise<SelectedFile[]> => {
     const next = [...files]
 
-    await Promise.all(
-      next.slice(0, PREVIEW_LIMIT).map(async (file, index) => {
-        if (file.previewUrl) return
+    for (let index = 0; index < Math.min(next.length, PREVIEW_LIMIT); index++) {
+      const file = next[index]
+      if (file.previewUrl) continue
 
-        const previewResult = await window.api.getFilePreview(file.path)
-        if (previewResult.ok) {
-          next[index] = {
-            ...next[index],
-            fileName: previewResult.fileName,
-            previewUrl: previewResult.dataUrl
-          }
+      if (isHeicPath(file.path)) {
+        next[index] = { ...next[index], previewUrl: HEIC_PREVIEW_PLACEHOLDER }
+        continue
+      }
+
+      const previewResult = await window.api.getFilePreview(file.path)
+      if (previewResult.ok) {
+        next[index] = {
+          ...next[index],
+          fileName: previewResult.fileName,
+          previewUrl: previewResult.dataUrl
         }
-      })
-    )
+      }
+    }
 
     return next
   }
 
-  const notifySkippedFiles = (skippedUnsupported: number, skippedInvalid: number): void => {
-    if (skippedUnsupported > 0) {
+  const notifySkippedFiles = (skippedIngest: number, skippedInvalid: number): void => {
+    if (skippedIngest > 0) {
       toast.warning(
-        skippedUnsupported === 1
-          ? 'Skipped 1 unsupported file'
-          : `Skipped ${skippedUnsupported} unsupported files`
+        skippedIngest === 1
+          ? 'Skipped 1 unsupported path'
+          : `Skipped ${skippedIngest} unsupported paths`
       )
     }
     if (skippedInvalid > 0) {
@@ -267,21 +274,35 @@ function App(): React.JSX.Element {
     return { ok: true, skippedInvalid }
   }
 
-  const addFiles = async (filePaths: string[]): Promise<boolean> => {
-    const resolved = resolvePathsToAdd(filePaths)
-    if (!resolved.ok) {
-      toast.error(resolved.message)
+  const addPaths = async (paths: string[]): Promise<boolean> => {
+    if (paths.length === 0) {
+      toast.error('No files to add.')
+      return false
+    }
+
+    const expanded = await window.api.expandIngestPaths(paths)
+    if (expanded.files.length === 0) {
+      toast.error('No supported images found.')
       return false
     }
 
     clearResultState()
 
+    if (expanded.inputRoot) {
+      setInputRoot(expanded.inputRoot)
+    }
+
     const mode = selectedFiles.length === 0 ? 'replace' : 'append'
-    const result = await loadSelectedFiles(resolved.paths, mode)
+    const result = await loadSelectedFiles(expanded.files, mode)
 
     if (!result.ok) return false
 
-    notifySkippedFiles(resolved.skippedUnsupported, result.skippedInvalid)
+    notifySkippedFiles(expanded.skipped, result.skippedInvalid)
+
+    if (expanded.files.length > paths.length) {
+      toast.message(`${expanded.files.length} images added from folder`)
+    }
+
     return true
   }
 
@@ -289,7 +310,14 @@ function App(): React.JSX.Element {
     const filePaths = await window.api.selectFiles()
     if (!filePaths || filePaths.length === 0) return
 
-    await addFiles(filePaths)
+    await addPaths(filePaths)
+  }
+
+  const handleSelectFolder = async (): Promise<void> => {
+    const folderPath = await window.api.selectInputFolder()
+    if (!folderPath) return
+
+    await addPaths([folderPath])
   }
 
   const handleDragEnter = (event: React.DragEvent): void => {
@@ -327,7 +355,7 @@ function App(): React.JSX.Element {
 
     if (filePaths.length === 0) return
 
-    await addFiles(filePaths)
+    await addPaths(filePaths)
   }
 
   const notifyBatchComplete = (results: BatchFileResult[]): void => {
@@ -399,10 +427,14 @@ function App(): React.JSX.Element {
       rememberOutputFolder(outputDir)
 
       const stopProgress = window.api.onBatchProgress(setBatchProgress)
+      const batchLayout: OutputLayout =
+        outputLayout === 'mirror' && inputRoot ? 'mirror' : 'flat'
+
       const result = await window.api.convertAndSaveBatch(
         selectedFiles.map((file) => file.path),
         outputDir,
-        outputFormat
+        outputFormat,
+        { layout: batchLayout, inputRoot }
       )
       stopProgress()
 
@@ -514,7 +546,7 @@ function App(): React.JSX.Element {
               </SelectContent>
             </Select>
             <p className="text-[11px] leading-snug text-muted-foreground">
-              {outputFormatHints[outputFormat]} · PNG, JPG, and WebP accepted
+              {outputFormatHints[outputFormat]} · {supportedInputSummary}
             </p>
           </div>
         </section>
@@ -551,14 +583,26 @@ function App(): React.JSX.Element {
             />
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSelectFiles}
-            disabled={isConverting}
-          >
-            Select Files
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={handleSelectFiles}
+              disabled={isConverting}
+            >
+              Select Files
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={handleSelectFolder}
+              disabled={isConverting}
+            >
+              Select Folder
+            </Button>
+          </div>
 
           <AssetList
             files={selectedFiles}
@@ -597,6 +641,42 @@ function App(): React.JSX.Element {
               />
               Save next to original file
             </label>
+          )}
+
+          {selectedFiles.length > 1 && (
+            <fieldset className="flex flex-col gap-2" disabled={isConverting}>
+              <legend className="text-xs text-muted-foreground">Output layout</legend>
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <label className="flex cursor-pointer items-center gap-2 select-none">
+                  <input
+                    type="radio"
+                    name="output-layout"
+                    checked={outputLayout === 'flat'}
+                    onChange={() => setOutputLayout('flat')}
+                    className="size-3.5 accent-primary"
+                  />
+                  Flat — all files in one folder
+                </label>
+                <label
+                  className={`flex items-center gap-2 select-none ${inputRoot ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  <input
+                    type="radio"
+                    name="output-layout"
+                    checked={outputLayout === 'mirror'}
+                    disabled={!inputRoot}
+                    onChange={() => setOutputLayout('mirror')}
+                    className="size-3.5 accent-primary"
+                  />
+                  Mirror — keep subfolder structure
+                </label>
+              </div>
+              {outputLayout === 'mirror' && inputRoot && (
+                <p className="text-[11px] text-muted-foreground">
+                  Relative to {fileNameFromPath(inputRoot)}
+                </p>
+              )}
+            </fieldset>
           )}
 
           <Button

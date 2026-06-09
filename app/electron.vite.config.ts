@@ -4,7 +4,17 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  main: {},
+  main: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'heic-child': resolve('src/main/heic-child.ts')
+        },
+        external: ['heic-convert', 'heic-decode', 'libheif-js']
+      }
+    }
+  },
   preload: {},
   renderer: {
     resolve: {

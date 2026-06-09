@@ -1,20 +1,11 @@
 import { extname } from 'path'
 import sharp from 'sharp'
 
-export type InputFileType = 'png' | 'jpg' | 'webp'
+export type InputFileType = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif'
 
-export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
+export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif'
 
-export type ConversionId =
-  | 'png-webp'
-  | 'png-jpg'
-  | 'png-avif'
-  | 'jpg-png'
-  | 'jpg-webp'
-  | 'jpg-avif'
-  | 'webp-png'
-  | 'webp-jpg'
-  | 'webp-avif'
+export type ConversionId = `${InputFileType}-${OutputFormat}`
 
 type ConverterFn = (input: Buffer) => Promise<Buffer>
 
@@ -32,7 +23,9 @@ export const formatLabels: Record<InputFileType | OutputFormat, string> = {
   png: 'PNG',
   jpg: 'JPG',
   webp: 'WebP',
-  avif: 'AVIF'
+  avif: 'AVIF',
+  gif: 'GIF',
+  heic: 'HEIC'
 }
 
 export const inputTypeMeta: Record<
@@ -45,7 +38,14 @@ export const inputTypeMeta: Record<
     openExtensions: ['jpg', 'jpeg'],
     extensions: ['.jpg', '.jpeg']
   },
-  webp: { openFilterName: 'WebP Images', openExtensions: ['webp'], extensions: ['.webp'] }
+  webp: { openFilterName: 'WebP Images', openExtensions: ['webp'], extensions: ['.webp'] },
+  heic: {
+    openFilterName: 'HEIC Images',
+    openExtensions: ['heic', 'heif'],
+    extensions: ['.heic', '.heif']
+  },
+  gif: { openFilterName: 'GIF Images', openExtensions: ['gif'], extensions: ['.gif'] },
+  avif: { openFilterName: 'AVIF Images', openExtensions: ['avif'], extensions: ['.avif'] }
 }
 
 const outputTypeMeta: Record<
@@ -55,16 +55,22 @@ const outputTypeMeta: Record<
   png: { saveFilterName: 'PNG Images', saveExtensions: ['png'], ext: 'png' },
   jpg: { saveFilterName: 'JPEG Images', saveExtensions: ['jpg', 'jpeg'], ext: 'jpg' },
   webp: { saveFilterName: 'WebP Images', saveExtensions: ['webp'], ext: 'webp' },
-  avif: { saveFilterName: 'AVIF Images', saveExtensions: ['avif'], ext: 'avif' }
+  avif: { saveFilterName: 'AVIF Images', saveExtensions: ['avif'], ext: 'avif' },
+  gif: { saveFilterName: 'GIF Images', saveExtensions: ['gif'], ext: 'gif' }
 }
+
+const rasterOutputs: OutputFormat[] = ['webp', 'jpg', 'png', 'avif', 'gif']
 
 export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
-  png: ['webp', 'jpg', 'avif'],
-  jpg: ['png', 'webp', 'avif'],
-  webp: ['png', 'jpg', 'avif']
+  png: rasterOutputs.filter((f) => f !== 'png'),
+  jpg: rasterOutputs.filter((f) => f !== 'jpg'),
+  webp: rasterOutputs.filter((f) => f !== 'webp'),
+  heic: rasterOutputs,
+  gif: rasterOutputs.filter((f) => f !== 'gif'),
+  avif: rasterOutputs.filter((f) => f !== 'avif')
 }
 
-export const inputFormats: InputFileType[] = ['png', 'jpg', 'webp']
+export const inputFormats: InputFileType[] = ['png', 'jpg', 'webp', 'heic', 'gif', 'avif']
 
 function encodeOutput(image: sharp.Sharp, output: OutputFormat): sharp.Sharp {
   switch (output) {
@@ -76,6 +82,8 @@ function encodeOutput(image: sharp.Sharp, output: OutputFormat): sharp.Sharp {
       return image.webp()
     case 'avif':
       return image.avif()
+    case 'gif':
+      return image.gif()
   }
 }
 
@@ -84,7 +92,7 @@ async function convertToOutput(input: Buffer, output: OutputFormat): Promise<Buf
 }
 
 function conversionIdFor(input: InputFileType, output: OutputFormat): ConversionId {
-  return `${input}-${output}` as ConversionId
+  return `${input}-${output}`
 }
 
 function buildConversionMeta(input: InputFileType, output: OutputFormat): ConversionMeta {
@@ -126,17 +134,19 @@ const registry = buildRegistry()
 export const converters = registry.converters
 export const conversionMeta = registry.conversionMeta
 
-export const allOutputFormats: OutputFormat[] = ['webp', 'jpg', 'png', 'avif']
+export const allOutputFormats: OutputFormat[] = ['webp', 'jpg', 'png', 'avif', 'gif']
 
 export type FormatOptions = {
   outputFormats: OutputFormat[]
   formatLabels: Record<InputFileType | OutputFormat, string>
+  supportedExtensions: string[]
 }
 
 export function getFormatOptions(): FormatOptions {
   return {
     outputFormats: allOutputFormats,
-    formatLabels
+    formatLabels,
+    supportedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'gif', 'avif']
   }
 }
 
@@ -155,8 +165,34 @@ export function inputMatchesOutput(input: InputFileType, output: OutputFormat): 
   return input === output
 }
 
+const DIALOG_IMAGE_EXTENSIONS = [
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'heic',
+  'heif',
+  'gif',
+  'avif'
+] as const
+
+/** Windows matches dialog extensions case-sensitively; iPhone exports use `.HEIC`. */
+function openDialogExtensions(extensions: readonly string[]): string[] {
+  const variants: string[] = []
+  for (const ext of extensions) {
+    variants.push(ext, ext.toUpperCase())
+  }
+  return variants
+}
+
 export function getCombinedOpenDialogFilters(): Electron.FileFilter[] {
-  return [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+  return [
+    {
+      name: 'Images',
+      extensions: openDialogExtensions(DIALOG_IMAGE_EXTENSIONS)
+    },
+    { name: 'All Files', extensions: ['*'] }
+  ]
 }
 
 export function getSaveDialogFilters(output: OutputFormat): Electron.FileFilter[] {
@@ -187,11 +223,6 @@ export function toConversionId(
 export function isValidInputFile(filePath: string, inputType: InputFileType): boolean {
   const ext = extname(filePath).toLowerCase()
   return inputTypeMeta[inputType].extensions.includes(ext)
-}
-
-export function getOpenDialogFilters(inputType: InputFileType): Electron.FileFilter[] {
-  const meta = inputTypeMeta[inputType]
-  return [{ name: meta.openFilterName, extensions: meta.openExtensions }]
 }
 
 export async function runConversion(input: Buffer, conversionId: ConversionId): Promise<Buffer> {

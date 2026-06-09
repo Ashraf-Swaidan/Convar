@@ -17,6 +17,8 @@ import {
   outputExtension,
   type OutputFormat
 } from './convert'
+import { expandIngestPaths } from './ingest'
+import type { OutputLayout } from './ingest'
 import { appError, toFailure } from './errors'
 import {
   appendHistory,
@@ -110,6 +112,28 @@ app.whenReady().then(() => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
+  ipcMain.handle('dialog:selectInputFolder', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(window!, {
+      properties: ['openDirectory'],
+      title: 'Select image folder'
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('ingest:expandPaths', async (_, paths: string[]) => {
+    if (!Array.isArray(paths) || paths.length === 0) {
+      return { files: [], inputRoot: null, skipped: 0 }
+    }
+
+    return expandIngestPaths(paths)
+  })
+
   ipcMain.handle('dialog:selectFiles', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
@@ -157,7 +181,7 @@ app.whenReady().then(() => {
       return toFailure(readResult.error)
     }
 
-    return { ok: true as const, byteLength: readResult.buffer.byteLength }
+    return { ok: true as const, byteLength: readResult.byteLength }
   })
 
   ipcMain.handle('file:getPreview', async (_, filePath: string) => {
@@ -167,7 +191,10 @@ app.whenReady().then(() => {
 
     if (!isSupportedInputFile(filePath)) {
       return toFailure(
-        appError('invalid_input', 'Unsupported image type. Use PNG, JPG, or WebP.')
+        appError(
+          'invalid_input',
+          'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, or AVIF.'
+        )
       )
     }
 
@@ -178,7 +205,8 @@ app.whenReady().then(() => {
         dataUrl,
         fileName: basename(filePath)
       }
-    } catch {
+    } catch (err) {
+      console.error('preview_failed', filePath, err)
       return toFailure(appError('preview_failed', 'Could not load preview.'))
     }
   })
@@ -232,7 +260,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'convert:saveBatch',
-    async (event, inputPaths: string[], outputDir: string, outputFormat: OutputFormat) => {
+    async (
+      event,
+      inputPaths: string[],
+      outputDir: string,
+      outputFormat: OutputFormat,
+      options?: { layout?: OutputLayout; inputRoot?: string | null }
+    ) => {
       if (!isOutputFormat(outputFormat)) {
         return toFailure(appError('unknown_conversion', 'Unknown output format.'))
       }
@@ -245,11 +279,15 @@ app.whenReady().then(() => {
         return toFailure(appError('no_output_folder', 'No output folder selected.'))
       }
 
+      const layout: OutputLayout = options?.layout === 'mirror' ? 'mirror' : 'flat'
+      const inputRoot = options?.inputRoot ?? null
+
       const sender = event.sender
       const results = await convertBatchToOutputDir(
         inputPaths,
         outputDir,
         outputFormat,
+        { layout, inputRoot },
         (progress) => {
           sender.send('batch:progress', progress)
         }

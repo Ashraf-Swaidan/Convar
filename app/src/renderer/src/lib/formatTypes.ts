@@ -1,12 +1,4 @@
-export type InputFormat = 'png' | 'jpg' | 'webp'
-export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
-export type ConversionId =
-  | 'png-webp'
-  | 'png-jpg'
-  | 'png-avif'
-  | 'jpg-png'
-  | 'jpg-webp'
-  | 'jpg-avif'
-  | 'webp-png'
-  | 'webp-jpg'
-  | 'webp-avif'
+export type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif'
+export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif'
+export type ConversionId = `${InputFormat}-${OutputFormat}`
+export type OutputLayout = 'flat' | 'mirror'

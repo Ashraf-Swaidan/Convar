@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { getErrorHint, type AppErrorCode } from '@/lib/errorHints'
+import { HEIC_PREVIEW_PLACEHOLDER, isHeicPath } from '@/lib/heicPreview'
 import { countStatuses, type FileConversionStatus } from '@/lib/conversionStatus'
 type AssetFile = {
   path: string
@@ -61,6 +62,12 @@ export function AssetList({
       for (const file of files) {
         if (cancelled) return
         if (file.previewUrl || loadingRef.current.has(file.path)) continue
+
+        if (isHeicPath(file.path)) {
+          setPreviewByPath((prev) => ({ ...prev, [file.path]: HEIC_PREVIEW_PLACEHOLDER }))
+          loadingRef.current.add(file.path)
+          continue
+        }
 
         loadingRef.current.add(file.path)
         const result = await window.api.getFilePreview(file.path)

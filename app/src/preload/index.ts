@@ -1,18 +1,10 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-type ConversionId =
-  | 'png-webp'
-  | 'png-jpg'
-  | 'png-avif'
-  | 'jpg-png'
-  | 'jpg-webp'
-  | 'jpg-avif'
-  | 'webp-png'
-  | 'webp-jpg'
-  | 'webp-avif'
-type InputFormat = 'png' | 'jpg' | 'webp'
-type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif'
+type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif'
+type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif'
+type ConversionId = `${InputFormat}-${OutputFormat}`
+type OutputLayout = 'flat' | 'mirror'
 
 type AppErrorCode =
   | 'unknown_conversion'
@@ -30,6 +22,13 @@ type FailureResult = { ok: false; error: string; code: AppErrorCode }
 type FormatOptions = {
   outputFormats: OutputFormat[]
   formatLabels: Record<InputFormat | OutputFormat, string>
+  supportedExtensions: string[]
+}
+
+type IngestResult = {
+  files: string[]
+  inputRoot: string | null
+  skipped: number
 }
 
 type ReadFileResult = { ok: true; byteLength: number } | FailureResult
@@ -72,6 +71,10 @@ const api = {
     ipcRenderer.invoke('conversions:getFormatOptions'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   selectFiles: (): Promise<string[] | null> => ipcRenderer.invoke('dialog:selectFiles'),
+  selectInputFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectInputFolder'),
+  expandIngestPaths: (paths: string[]): Promise<IngestResult> =>
+    ipcRenderer.invoke('ingest:expandPaths', paths),
   selectOutputFolder: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectOutputFolder', defaultPath),
   openPath: (targetPath: string): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -102,9 +105,10 @@ const api = {
   convertAndSaveBatch: (
     filePaths: string[],
     outputDir: string,
-    outputFormat: OutputFormat
+    outputFormat: OutputFormat,
+    options?: { layout?: OutputLayout; inputRoot?: string | null }
   ): Promise<BatchSaveResult> =>
-    ipcRenderer.invoke('convert:saveBatch', filePaths, outputDir, outputFormat),
+    ipcRenderer.invoke('convert:saveBatch', filePaths, outputDir, outputFormat, options),
   onBatchProgress: (callback: (progress: BatchProgress) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, progress: BatchProgress): void => {
       callback(progress)

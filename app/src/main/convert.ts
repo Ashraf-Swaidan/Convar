@@ -1,9 +1,9 @@
 import { extname } from 'path'
 import sharp from 'sharp'
 
-export type InputFileType = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif'
+export type InputFileType = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff'
 
-export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif'
+export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
 
 export type ConversionId = `${InputFileType}-${OutputFormat}`
 
@@ -25,7 +25,8 @@ export const formatLabels: Record<InputFileType | OutputFormat, string> = {
   webp: 'WebP',
   avif: 'AVIF',
   gif: 'GIF',
-  heic: 'HEIC'
+  heic: 'HEIC',
+  tiff: 'TIFF'
 }
 
 export const inputTypeMeta: Record<
@@ -45,7 +46,12 @@ export const inputTypeMeta: Record<
     extensions: ['.heic', '.heif']
   },
   gif: { openFilterName: 'GIF Images', openExtensions: ['gif'], extensions: ['.gif'] },
-  avif: { openFilterName: 'AVIF Images', openExtensions: ['avif'], extensions: ['.avif'] }
+  avif: { openFilterName: 'AVIF Images', openExtensions: ['avif'], extensions: ['.avif'] },
+  tiff: {
+    openFilterName: 'TIFF Images',
+    openExtensions: ['tif', 'tiff'],
+    extensions: ['.tif', '.tiff']
+  }
 }
 
 const outputTypeMeta: Record<
@@ -56,10 +62,11 @@ const outputTypeMeta: Record<
   jpg: { saveFilterName: 'JPEG Images', saveExtensions: ['jpg', 'jpeg'], ext: 'jpg' },
   webp: { saveFilterName: 'WebP Images', saveExtensions: ['webp'], ext: 'webp' },
   avif: { saveFilterName: 'AVIF Images', saveExtensions: ['avif'], ext: 'avif' },
-  gif: { saveFilterName: 'GIF Images', saveExtensions: ['gif'], ext: 'gif' }
+  gif: { saveFilterName: 'GIF Images', saveExtensions: ['gif'], ext: 'gif' },
+  tiff: { saveFilterName: 'TIFF Images', saveExtensions: ['tif', 'tiff'], ext: 'tiff' }
 }
 
-const rasterOutputs: OutputFormat[] = ['webp', 'jpg', 'png', 'avif', 'gif']
+const rasterOutputs: OutputFormat[] = ['webp', 'jpg', 'png', 'tiff', 'avif', 'gif']
 
 export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
   png: rasterOutputs.filter((f) => f !== 'png'),
@@ -67,10 +74,11 @@ export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
   webp: rasterOutputs.filter((f) => f !== 'webp'),
   heic: rasterOutputs,
   gif: rasterOutputs.filter((f) => f !== 'gif'),
-  avif: rasterOutputs.filter((f) => f !== 'avif')
+  avif: rasterOutputs.filter((f) => f !== 'avif'),
+  tiff: rasterOutputs.filter((f) => f !== 'tiff')
 }
 
-export const inputFormats: InputFileType[] = ['png', 'jpg', 'webp', 'heic', 'gif', 'avif']
+export const inputFormats: InputFileType[] = ['png', 'jpg', 'webp', 'heic', 'gif', 'avif', 'tiff']
 
 function encodeOutput(image: sharp.Sharp, output: OutputFormat): sharp.Sharp {
   switch (output) {
@@ -84,6 +92,8 @@ function encodeOutput(image: sharp.Sharp, output: OutputFormat): sharp.Sharp {
       return image.avif()
     case 'gif':
       return image.gif()
+    case 'tiff':
+      return image.tiff()
   }
 }
 
@@ -134,7 +144,7 @@ const registry = buildRegistry()
 export const converters = registry.converters
 export const conversionMeta = registry.conversionMeta
 
-export const allOutputFormats: OutputFormat[] = ['webp', 'jpg', 'png', 'avif', 'gif']
+export const allOutputFormats: OutputFormat[] = ['webp', 'jpg', 'png', 'tiff', 'avif', 'gif']
 
 export type FormatOptions = {
   outputFormats: OutputFormat[]
@@ -146,7 +156,7 @@ export function getFormatOptions(): FormatOptions {
   return {
     outputFormats: allOutputFormats,
     formatLabels,
-    supportedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'gif', 'avif']
+    supportedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'gif', 'avif', 'tif', 'tiff']
   }
 }
 
@@ -173,7 +183,9 @@ const DIALOG_IMAGE_EXTENSIONS = [
   'heic',
   'heif',
   'gif',
-  'avif'
+  'avif',
+  'tif',
+  'tiff'
 ] as const
 
 /** Windows matches dialog extensions case-sensitively; iPhone exports use `.HEIC`. */

@@ -8,5 +8,6 @@ export function detectInputFormat(filePath: string): InputFormat | null {
   if (ext === 'heic' || ext === 'heif') return 'heic'
   if (ext === 'gif') return 'gif'
   if (ext === 'avif') return 'avif'
+  if (ext === 'tif' || ext === 'tiff') return 'tiff'
   return null
 }

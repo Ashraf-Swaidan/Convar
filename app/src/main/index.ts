@@ -193,7 +193,7 @@ app.whenReady().then(() => {
       return toFailure(
         appError(
           'invalid_input',
-          'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, or AVIF.'
+          'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
         )
       )
     }

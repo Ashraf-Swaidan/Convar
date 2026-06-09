@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif'
-type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif'
+type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff'
+type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
 type ConversionId = `${InputFormat}-${OutputFormat}`
 type OutputLayout = 'flat' | 'mirror'
 

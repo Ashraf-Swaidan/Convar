@@ -20,7 +20,7 @@ function assert(condition: boolean, message: string): void {
 
 async function expectFormat(
   buffer: Buffer,
-  format: 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'heif'
+  format: 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'heif' | 'tiff'
 ): Promise<void> {
   const meta = await sharp(buffer).metadata()
   const actual = meta.format ?? 'unknown'
@@ -35,7 +35,9 @@ async function expectFormat(
   assert(ok, `Expected ${format}, got ${actual}`)
 }
 
-function sharpFormatFor(output: OutputFormat): 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' {
+function sharpFormatFor(
+  output: OutputFormat
+): 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'tiff' {
   return output === 'jpg' ? 'jpeg' : output
 }
 
@@ -59,7 +61,9 @@ async function buildInputBuffers(): Promise<Record<InputFileType, Buffer>> {
     heic = Buffer.alloc(0)
   }
 
-  return { png, jpg, webp, gif, avif, heic }
+  const tiff = await sharp(png).tiff().toBuffer()
+
+  return { png, jpg, webp, gif, avif, heic, tiff }
 }
 
 async function main(): Promise<void> {
@@ -103,12 +107,15 @@ async function main(): Promise<void> {
   assert(isValidInputFile('photo.heif', 'heic'), 'HEIF path should validate as HEIC input')
   assert(isValidInputFile('photo.gif', 'gif'), 'GIF path should validate')
   assert(isValidInputFile('photo.avif', 'avif'), 'AVIF path should validate')
+  assert(isValidInputFile('photo.tif', 'tiff'), 'TIF path should validate')
+  assert(isValidInputFile('photo.tiff', 'tiff'), 'TIFF path should validate')
+  assert(isValidInputFile('photo.TIFF', 'tiff'), 'TIFF path should validate case-insensitively')
   assert(toConversionId('png', 'webp') === 'png-webp', 'toConversionId png-webp')
   assert(toConversionId('avif', 'png') === 'avif-png', 'toConversionId avif-png')
   assert(toConversionId('png', 'png') === null, 'png-png should be invalid')
 
   const options = getFormatOptions()
-  assert(options.outputFormats.join(',') === 'webp,jpg,png,avif,gif', 'outputFormats')
+  assert(options.outputFormats.join(',') === 'webp,jpg,png,tiff,avif,gif', 'outputFormats')
 
   let corruptFailed = false
   try {

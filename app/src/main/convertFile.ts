@@ -27,7 +27,7 @@ export async function readSupportedFile(
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, or AVIF.'
+        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
       )
     }
   }
@@ -119,7 +119,7 @@ export async function processFileToPath(
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, or AVIF.'
+        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
       )
     }
   }

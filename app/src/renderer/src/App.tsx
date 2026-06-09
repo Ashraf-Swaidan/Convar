@@ -22,15 +22,15 @@ import {
   countStatuses,
   type FileConversionStatus
 } from '@/lib/conversionStatus'
-import { conversionLabel } from '@/lib/conversionLabel'
 import {
   clearLegacyConversionHistory,
   loadLegacyConversionHistory,
   type ConversionHistoryEntry
 } from '@/lib/conversionHistory'
 import { resolvePathsToAdd } from '@/lib/detectInputFormat'
-import { inputFormatHints, outputFormatHints } from '@/lib/formatHints'
-import type { ConversionId, InputFormat, OutputFormat } from '@/lib/formatTypes'
+import { outputFormatHints } from '@/lib/formatHints'
+import { historyMetaForFile } from '@/lib/historyMeta'
+import type { OutputFormat } from '@/lib/formatTypes'
 import {
   getRememberedOutputFolder,
   rememberOutputFolder
@@ -38,9 +38,8 @@ import {
 import { getSaveNextToInput, setSaveNextToInput } from '@/lib/saveNextToInput'
 
 type FormatOptions = {
-  inputFormats: InputFormat[]
-  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
-  formatLabels: Record<InputFormat | OutputFormat, string>
+  outputFormats: OutputFormat[]
+  formatLabels: Record<string, string>
 }
 
 type SelectedFile = {
@@ -51,7 +50,7 @@ type SelectedFile = {
 }
 
 type BatchFileResult =
-  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
+  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number; copied: boolean }
   | { inputPath: string; ok: false; error: string; code: AppErrorCode }
 
 type BatchProgress = {
@@ -62,10 +61,6 @@ type BatchProgress = {
 
 const PREVIEW_LIMIT = 3
 const isDev = import.meta.env.DEV
-
-function toConversionId(input: InputFormat, output: OutputFormat): ConversionId {
-  return `${input}-${output}` as ConversionId
-}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -79,7 +74,6 @@ function fileNameFromPath(filePath: string): string {
 
 function App(): React.JSX.Element {
   const [formatOptions, setFormatOptions] = useState<FormatOptions | null>(null)
-  const [inputFormat, setInputFormat] = useState<InputFormat>('png')
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp')
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
   const [statusByPath, setStatusByPath] = useState<Record<string, FileConversionStatus>>({})
@@ -113,9 +107,6 @@ function App(): React.JSX.Element {
       setHistoryEntries(entries)
     })()
   }, [])
-
-  const outputOptions = formatOptions?.outputOptionsByInput[inputFormat] ?? []
-  const conversionId = toConversionId(inputFormat, outputFormat)
 
   const clearFileState = (): void => {
     setSelectedFiles([])
@@ -160,11 +151,12 @@ function App(): React.JSX.Element {
   ): Promise<void> => {
     if (!formatOptions) return
 
+    const meta = historyMetaForFile(inputPath, outputFormat, formatOptions.formatLabels)
     const entries = await window.api.appendConversionHistory({
       inputPath,
       outputPath,
-      conversionId,
-      conversionLabel: conversionLabel(conversionId, formatOptions.formatLabels),
+      conversionId: meta.conversionId,
+      conversionLabel: meta.conversionLabel,
       outputByteLength
     })
     setHistoryEntries(entries)
@@ -185,31 +177,19 @@ function App(): React.JSX.Element {
     if (!result.ok) toast.error(result.error)
   }
 
-  const handleInputFormatChange = (value: InputFormat): void => {
-    if (!formatOptions) return
-
-    setInputFormat(value)
-    const nextOutputs = formatOptions.outputOptionsByInput[value]
-    if (!nextOutputs.includes(outputFormat)) {
-      setOutputFormat(nextOutputs[0])
-    }
-    clearFileState()
-    clearResultState()
-  }
-
   const handleOutputFormatChange = (value: OutputFormat): void => {
     setOutputFormat(value)
     clearResultState()
   }
 
-  const loadPreviews = async (files: SelectedFile[], id: ConversionId): Promise<SelectedFile[]> => {
+  const loadPreviews = async (files: SelectedFile[]): Promise<SelectedFile[]> => {
     const next = [...files]
 
     await Promise.all(
       next.slice(0, PREVIEW_LIMIT).map(async (file, index) => {
         if (file.previewUrl) return
 
-        const previewResult = await window.api.getFilePreview(file.path, id)
+        const previewResult = await window.api.getFilePreview(file.path)
         if (previewResult.ok) {
           next[index] = {
             ...next[index],
@@ -242,7 +222,6 @@ function App(): React.JSX.Element {
 
   const loadSelectedFiles = async (
     filePaths: string[],
-    id: ConversionId,
     mode: 'replace' | 'append' = 'replace'
   ): Promise<{ ok: true; skippedInvalid: number } | { ok: false }> => {
     const newPaths = filePaths.filter(
@@ -260,7 +239,7 @@ function App(): React.JSX.Element {
     let skippedInvalid = 0
 
     for (const filePath of newPaths) {
-      const readResult = await window.api.readFile(filePath, id)
+      const readResult = await window.api.readFile(filePath)
       if (!readResult.ok) {
         if (mode === 'append') {
           skippedInvalid += 1
@@ -280,29 +259,16 @@ function App(): React.JSX.Element {
     }
 
     if (files.length === 0) {
-      setError(appError('invalid_input', 'No valid files for the selected input format.'))
+      setError(appError('invalid_input', 'No supported image files were added.'))
       return { ok: false }
     }
 
-    setSelectedFiles(await loadPreviews(files, id))
+    setSelectedFiles(await loadPreviews(files))
     return { ok: true, skippedInvalid }
   }
 
-  const applyInputFormat = (nextInput: InputFormat): ConversionId => {
-    if (!formatOptions) return conversionId
-
-    const nextOutputs = formatOptions.outputOptionsByInput[nextInput]
-    const nextOutput = nextOutputs.includes(outputFormat) ? outputFormat : nextOutputs[0]
-    setInputFormat(nextInput)
-    setOutputFormat(nextOutput)
-    return toConversionId(nextInput, nextOutput)
-  }
-
   const addFiles = async (filePaths: string[]): Promise<boolean> => {
-    if (!formatOptions) return false
-
-    const isAppend = selectedFiles.length > 0
-    const resolved = resolvePathsToAdd(filePaths, isAppend ? inputFormat : undefined)
+    const resolved = resolvePathsToAdd(filePaths)
     if (!resolved.ok) {
       toast.error(resolved.message)
       return false
@@ -310,8 +276,8 @@ function App(): React.JSX.Element {
 
     clearResultState()
 
-    const id = isAppend ? conversionId : applyInputFormat(resolved.inputFormat)
-    const result = await loadSelectedFiles(resolved.paths, id, isAppend ? 'append' : 'replace')
+    const mode = selectedFiles.length === 0 ? 'replace' : 'append'
+    const result = await loadSelectedFiles(resolved.paths, mode)
 
     if (!result.ok) return false
 
@@ -320,7 +286,7 @@ function App(): React.JSX.Element {
   }
 
   const handleSelectFiles = async (): Promise<void> => {
-    const filePaths = await window.api.selectFiles(conversionId)
+    const filePaths = await window.api.selectFiles()
     if (!filePaths || filePaths.length === 0) return
 
     await addFiles(filePaths)
@@ -366,9 +332,17 @@ function App(): React.JSX.Element {
 
   const notifyBatchComplete = (results: BatchFileResult[]): void => {
     const { success, failed } = countStatuses(buildStatusMapFromBatch(results))
+    const copied = results.filter((r) => r.ok && r.copied).length
+    const converted = success - copied
 
     if (failed === 0) {
-      toast.success(`${success} file${success === 1 ? '' : 's'} converted`)
+      if (copied > 0 && converted === 0) {
+        toast.success(`${copied} file${copied === 1 ? '' : 's'} copied`)
+      } else if (copied > 0) {
+        toast.success(`${converted} converted, ${copied} copied`)
+      } else {
+        toast.success(`${success} file${success === 1 ? '' : 's'} converted`)
+      }
       return
     }
 
@@ -393,7 +367,7 @@ function App(): React.JSX.Element {
     try {
       if (selectedFiles.length === 1) {
         const file = selectedFiles[0]
-        const result = await window.api.convertAndSave(file.path, conversionId, {
+        const result = await window.api.convertAndSave(file.path, outputFormat, {
           saveNextToInput
         })
 
@@ -411,7 +385,7 @@ function App(): React.JSX.Element {
 
         setStatusByPath({ [file.path]: { state: 'success' } })
         await recordHistory(file.path, result.savedPath, result.outputByteLength)
-        toast.success(`Saved ${file.fileName}`, {
+        toast.success(result.copied ? `Copied ${file.fileName}` : `Saved ${file.fileName}`, {
           description: formatFileSize(result.outputByteLength)
         })
         return
@@ -428,7 +402,7 @@ function App(): React.JSX.Element {
       const result = await window.api.convertAndSaveBatch(
         selectedFiles.map((file) => file.path),
         outputDir,
-        conversionId
+        outputFormat
       )
       stopProgress()
 
@@ -478,7 +452,8 @@ function App(): React.JSX.Element {
         inputPath: file.path,
         ok: true as const,
         savedPath: `C:\\output\\${file.fileName.replace(/\.[^.]+$/, '.webp')}`,
-        outputByteLength: file.byteLength
+        outputByteLength: file.byteLength,
+        copied: false
       }
     })
 
@@ -519,56 +494,28 @@ function App(): React.JSX.Element {
       <div className="flex w-full max-w-md flex-col gap-8">
         <section className="flex flex-col gap-3">
           <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Format
+            Output format
           </h2>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">Input</span>
-              <Select
-                value={inputFormat}
-                onValueChange={handleInputFormatChange}
-                disabled={isConverting}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {formatOptions.inputFormats.map((format) => (
-                    <SelectItem key={format} value={format}>
-                      {formatOptions.formatLabels[format]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {inputFormatHints[inputFormat]}
-              </p>
-            </div>
-
-            <span className="pt-8 text-sm text-muted-foreground/60">→</span>
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">Output</span>
-              <Select
-                value={outputFormat}
-                onValueChange={handleOutputFormatChange}
-                disabled={isConverting}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {outputOptions.map((format) => (
-                    <SelectItem key={format} value={format}>
-                      {formatOptions.formatLabels[format]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {outputFormatHints[outputFormat]}
-              </p>
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Select
+              value={outputFormat}
+              onValueChange={handleOutputFormatChange}
+              disabled={isConverting}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {formatOptions.outputFormats.map((format) => (
+                  <SelectItem key={format} value={format}>
+                    {formatOptions.formatLabels[format]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {outputFormatHints[outputFormat]} · PNG, JPG, and WebP accepted
+            </p>
           </div>
         </section>
 
@@ -580,8 +527,7 @@ function App(): React.JSX.Element {
             <div className="flex items-center gap-3">
               {selectedFiles.length > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  {selectedFiles.length} {formatOptions.formatLabels[inputFormat]}
-                  {selectedFiles.length === 1 ? '' : 's'}
+                  {selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'}
                 </span>
               )}
               {selectedFiles.length > 0 && (
@@ -597,7 +543,7 @@ function App(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="rounded-xl border border-dashed border-border/90 bg-muted/20 px-2">
+          <div className="px-1">
             <FilePreviewCollage
               files={selectedFiles}
               totalCount={selectedFiles.length}
@@ -616,7 +562,6 @@ function App(): React.JSX.Element {
 
           <AssetList
             files={selectedFiles}
-            conversionId={conversionId}
             formatFileSize={formatFileSize}
             statusByPath={statusByPath}
             autoExpand={assetListExpanded}

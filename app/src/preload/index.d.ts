@@ -27,8 +27,7 @@ type AppErrorCode =
 type FailureResult = { ok: false; error: string; code: AppErrorCode }
 
 type FormatOptions = {
-  inputFormats: InputFormat[]
-  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
+  outputFormats: OutputFormat[]
   formatLabels: Record<InputFormat | OutputFormat, string>
 }
 
@@ -37,12 +36,12 @@ type ReadFileResult = { ok: true; byteLength: number } | FailureResult
 type PreviewResult = { ok: true; dataUrl: string; fileName: string } | FailureResult
 
 type ConvertSaveResult =
-  | { ok: true; savedPath: string; outputByteLength: number }
+  | { ok: true; savedPath: string; outputByteLength: number; copied: boolean }
   | FailureResult
   | { canceled: true }
 
 type BatchFileResult =
-  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
+  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number; copied: boolean }
   | { inputPath: string; ok: false; error: string; code: AppErrorCode }
 
 type BatchSaveResult = { ok: true; results: BatchFileResult[] } | FailureResult
@@ -71,8 +70,7 @@ declare global {
     api: {
       getFormatOptions: () => Promise<FormatOptions>
       getAppVersion: () => Promise<string>
-      selectFile: (conversionId: ConversionId) => Promise<string | null>
-      selectFiles: (conversionId: ConversionId) => Promise<string[] | null>
+      selectFiles: () => Promise<string[] | null>
       selectOutputFolder: (defaultPath?: string) => Promise<string | null>
       openPath: (targetPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
       showItemInFolder: (fullPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -84,17 +82,17 @@ declare global {
         entries: ConversionHistoryEntry[]
       ) => Promise<ConversionHistoryEntry[]>
       clearConversionHistory: () => Promise<void>
-      readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
-      getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>
+      readFile: (filePath: string) => Promise<ReadFileResult>
+      getFilePreview: (filePath: string) => Promise<PreviewResult>
       convertAndSave: (
         filePath: string,
-        conversionId: ConversionId,
+        outputFormat: OutputFormat,
         options?: { saveNextToInput?: boolean }
       ) => Promise<ConvertSaveResult>
       convertAndSaveBatch: (
         filePaths: string[],
         outputDir: string,
-        conversionId: ConversionId
+        outputFormat: OutputFormat
       ) => Promise<BatchSaveResult>
       onBatchProgress: (callback: (progress: BatchProgress) => void) => () => void
       platform: string

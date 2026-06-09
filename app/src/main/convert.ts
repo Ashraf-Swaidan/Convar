@@ -126,22 +126,54 @@ const registry = buildRegistry()
 export const converters = registry.converters
 export const conversionMeta = registry.conversionMeta
 
+export const allOutputFormats: OutputFormat[] = ['webp', 'jpg', 'png', 'avif']
+
 export type FormatOptions = {
-  inputFormats: InputFileType[]
-  outputOptionsByInput: Record<InputFileType, OutputFormat[]>
+  outputFormats: OutputFormat[]
   formatLabels: Record<InputFileType | OutputFormat, string>
 }
 
 export function getFormatOptions(): FormatOptions {
   return {
-    inputFormats,
-    outputOptionsByInput,
+    outputFormats: allOutputFormats,
     formatLabels
   }
 }
 
+export function detectInputType(filePath: string): InputFileType | null {
+  for (const inputType of inputFormats) {
+    if (isValidInputFile(filePath, inputType)) return inputType
+  }
+  return null
+}
+
+export function isSupportedInputFile(filePath: string): boolean {
+  return detectInputType(filePath) !== null
+}
+
+export function inputMatchesOutput(input: InputFileType, output: OutputFormat): boolean {
+  return input === output
+}
+
+export function getCombinedOpenDialogFilters(): Electron.FileFilter[] {
+  return [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+}
+
+export function getSaveDialogFilters(output: OutputFormat): Electron.FileFilter[] {
+  const meta = outputTypeMeta[output]
+  return [{ name: meta.saveFilterName, extensions: meta.saveExtensions }]
+}
+
+export function outputExtension(output: OutputFormat): string {
+  return outputTypeMeta[output].ext
+}
+
 export function isConversionId(value: string): value is ConversionId {
   return value in converters
+}
+
+export function isOutputFormat(value: string): value is OutputFormat {
+  return allOutputFormats.includes(value as OutputFormat)
 }
 
 export function toConversionId(

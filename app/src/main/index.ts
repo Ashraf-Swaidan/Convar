@@ -3,17 +3,21 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createPreviewDataUrl } from './preview'
-import { convertBatchToOutputDir, readAndConvert, convertBuffer, writeConvertedOutput } from './convertFile'
+import {
+  convertBatchToOutputDir,
+  processFileToPath,
+  readSupportedFile
+} from './convertFile'
 import {
   getFormatOptions,
-  isConversionId,
-  isValidInputFile,
-  getOpenDialogFilters,
-  conversionMeta,
-  type ConversionId,
-  type ConversionMeta
+  isOutputFormat,
+  isSupportedInputFile,
+  getCombinedOpenDialogFilters,
+  getSaveDialogFilters,
+  outputExtension,
+  type OutputFormat
 } from './convert'
-import { appError, toFailure, type AppErrorCode } from './errors'
+import { appError, toFailure } from './errors'
 import {
   appendHistory,
   clearHistory,
@@ -22,18 +26,6 @@ import {
   type ConversionHistoryEntry,
   type NewHistoryEntry
 } from './history'
-
-type ResolvedConversion =
-  | { ok: true; conversionId: ConversionId; meta: ConversionMeta }
-  | { ok: false; error: string; code: AppErrorCode }
-
-function resolveConversion(conversionId: string): ResolvedConversion {
-  if (!isConversionId(conversionId)) {
-    return toFailure(appError('unknown_conversion', 'Unknown conversion type.'))
-  }
-
-  return { ok: true, conversionId, meta: conversionMeta[conversionId] }
-}
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
@@ -118,37 +110,11 @@ app.whenReady().then(() => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
-  ipcMain.handle('dialog:selectFile', async (event, conversionId: ConversionId) => {
-    const resolved = resolveConversion(conversionId)
-    if (!resolved.ok) {
-      return null
-    }
-
-    const { meta } = resolved
-    const window = BrowserWindow.fromWebContents(event.sender)
-    const result = await dialog.showOpenDialog(window!, {
-      properties: ['openFile'],
-      filters: getOpenDialogFilters(meta.inputType)
-    })
-
-    if (result.canceled || result.filePaths.length === 0) {
-      return null
-    }
-
-    return result.filePaths[0]
-  })
-
-  ipcMain.handle('dialog:selectFiles', async (event, conversionId: ConversionId) => {
-    const resolved = resolveConversion(conversionId)
-    if (!resolved.ok) {
-      return null
-    }
-
-    const { meta } = resolved
+  ipcMain.handle('dialog:selectFiles', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
       properties: ['openFile', 'multiSelections'],
-      filters: getOpenDialogFilters(meta.inputType)
+      filters: getCombinedOpenDialogFilters()
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -185,13 +151,8 @@ app.whenReady().then(() => {
     return { ok: true as const }
   })
 
-  ipcMain.handle('file:read', async (_, filePath: string, conversionId: ConversionId) => {
-    const resolved = resolveConversion(conversionId)
-    if (!resolved.ok) {
-      return resolved
-    }
-
-    const readResult = await readAndConvert(filePath, resolved.conversionId)
+  ipcMain.handle('file:read', async (_, filePath: string) => {
+    const readResult = await readSupportedFile(filePath)
     if (!readResult.ok) {
       return toFailure(readResult.error)
     }
@@ -199,20 +160,15 @@ app.whenReady().then(() => {
     return { ok: true as const, byteLength: readResult.buffer.byteLength }
   })
 
-  ipcMain.handle('file:getPreview', async (_, filePath: string, conversionId: ConversionId) => {
-    const resolved = resolveConversion(conversionId)
-    if (!resolved.ok) {
-      return resolved
-    }
-
-    const { meta } = resolved
-
+  ipcMain.handle('file:getPreview', async (_, filePath: string) => {
     if (!filePath) {
-      return toFailure(appError('no_file', `No file selected for ${meta.label}.`))
+      return toFailure(appError('no_file', 'No file selected.'))
     }
 
-    if (!isValidInputFile(filePath, meta.inputType)) {
-      return toFailure(appError('invalid_input', meta.invalidInputError))
+    if (!isSupportedInputFile(filePath)) {
+      return toFailure(
+        appError('invalid_input', 'Unsupported image type. Use PNG, JPG, or WebP.')
+      )
     }
 
     try {
@@ -223,9 +179,7 @@ app.whenReady().then(() => {
         fileName: basename(filePath)
       }
     } catch {
-      return toFailure(
-        appError('preview_failed', `Could not load preview for ${meta.label}.`)
-      )
+      return toFailure(appError('preview_failed', 'Could not load preview.'))
     }
   })
 
@@ -234,37 +188,25 @@ app.whenReady().then(() => {
     async (
       event,
       inputPath: string,
-      conversionId: ConversionId,
+      outputFormat: OutputFormat,
       options?: { saveNextToInput?: boolean }
     ) => {
-      const resolved = resolveConversion(conversionId)
-      if (!resolved.ok) {
-        return resolved
+      if (!isOutputFormat(outputFormat)) {
+        return toFailure(appError('unknown_conversion', 'Unknown output format.'))
       }
 
-      const readResult = await readAndConvert(inputPath, resolved.conversionId)
-      if (!readResult.ok) {
-        return toFailure(readResult.error)
-      }
-
-      const convertResult = await convertBuffer(readResult.buffer, resolved.conversionId)
-      if (!convertResult.ok) {
-        return toFailure(convertResult.error)
-      }
-
-      const meta = resolved.meta
-      const outputPath = join(
+      const defaultPath = join(
         dirname(inputPath),
-        `${basename(inputPath, extname(inputPath))}.${meta.outputExt}`
+        `${basename(inputPath, extname(inputPath))}.${outputExtension(outputFormat)}`
       )
 
-      let savedPath = outputPath
+      let savedPath = defaultPath
 
       if (!options?.saveNextToInput) {
         const window = BrowserWindow.fromWebContents(event.sender)
         const result = await dialog.showSaveDialog(window!, {
-          defaultPath: outputPath,
-          filters: [{ name: meta.saveFilterName, extensions: meta.saveExtensions }]
+          defaultPath,
+          filters: getSaveDialogFilters(outputFormat)
         })
 
         if (result.canceled || !result.filePath) {
@@ -274,29 +216,25 @@ app.whenReady().then(() => {
         savedPath = result.filePath
       }
 
-      const writeResult = await writeConvertedOutput(
-        savedPath,
-        convertResult.buffer,
-        resolved.conversionId
-      )
-      if (!writeResult.ok) {
-        return toFailure(writeResult.error)
+      const processResult = await processFileToPath(inputPath, savedPath, outputFormat)
+      if (!processResult.ok) {
+        return toFailure(processResult.error)
       }
 
       return {
         ok: true as const,
         savedPath,
-        outputByteLength: convertResult.buffer.byteLength
+        outputByteLength: processResult.outputByteLength,
+        copied: processResult.copied
       }
     }
   )
 
   ipcMain.handle(
     'convert:saveBatch',
-    async (event, inputPaths: string[], outputDir: string, conversionId: ConversionId) => {
-      const resolved = resolveConversion(conversionId)
-      if (!resolved.ok) {
-        return resolved
+    async (event, inputPaths: string[], outputDir: string, outputFormat: OutputFormat) => {
+      if (!isOutputFormat(outputFormat)) {
+        return toFailure(appError('unknown_conversion', 'Unknown output format.'))
       }
 
       if (!inputPaths.length) {
@@ -311,7 +249,7 @@ app.whenReady().then(() => {
       const results = await convertBatchToOutputDir(
         inputPaths,
         outputDir,
-        resolved.conversionId,
+        outputFormat,
         (progress) => {
           sender.send('batch:progress', progress)
         }

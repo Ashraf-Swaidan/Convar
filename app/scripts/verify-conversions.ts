@@ -77,10 +77,7 @@ async function main(): Promise<void> {
   assert(toConversionId('png', 'png') === null, 'png-png should be invalid')
 
   const options = getFormatOptions()
-  assert(options.inputFormats.join(',') === 'png,jpg,webp', 'inputFormats')
-  assert(options.outputOptionsByInput.png.join(',') === 'webp,jpg,avif', 'png outputs')
-  assert(options.outputOptionsByInput.jpg.join(',') === 'png,webp,avif', 'jpg outputs')
-  assert(options.outputOptionsByInput.webp.join(',') === 'png,jpg,avif', 'webp outputs')
+  assert(options.outputFormats.join(',') === 'webp,jpg,png,avif', 'outputFormats')
 
   let corruptFailed = false
   try {

@@ -28,8 +28,7 @@ type AppErrorCode =
 type FailureResult = { ok: false; error: string; code: AppErrorCode }
 
 type FormatOptions = {
-  inputFormats: InputFormat[]
-  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
+  outputFormats: OutputFormat[]
   formatLabels: Record<InputFormat | OutputFormat, string>
 }
 
@@ -40,12 +39,12 @@ type PreviewResult =
   | FailureResult
 
 type ConvertSaveResult =
-  | { ok: true; savedPath: string; outputByteLength: number }
+  | { ok: true; savedPath: string; outputByteLength: number; copied: boolean }
   | FailureResult
   | { canceled: true }
 
 type BatchFileResult =
-  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
+  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number; copied: boolean }
   | { inputPath: string; ok: false; error: string; code: AppErrorCode }
 
 type BatchSaveResult = { ok: true; results: BatchFileResult[] } | FailureResult
@@ -72,10 +71,7 @@ const api = {
   getFormatOptions: (): Promise<FormatOptions> =>
     ipcRenderer.invoke('conversions:getFormatOptions'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  selectFile: (conversionId: ConversionId): Promise<string | null> =>
-    ipcRenderer.invoke('dialog:selectFile', conversionId),
-  selectFiles: (conversionId: ConversionId): Promise<string[] | null> =>
-    ipcRenderer.invoke('dialog:selectFiles', conversionId),
+  selectFiles: (): Promise<string[] | null> => ipcRenderer.invoke('dialog:selectFiles'),
   selectOutputFolder: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectOutputFolder', defaultPath),
   openPath: (targetPath: string): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -93,22 +89,22 @@ const api = {
     entries: ConversionHistoryEntry[]
   ): Promise<ConversionHistoryEntry[]> => ipcRenderer.invoke('history:replace', entries),
   clearConversionHistory: (): Promise<void> => ipcRenderer.invoke('history:clear'),
-  readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>
-    ipcRenderer.invoke('file:read', filePath, conversionId),
-  getFilePreview: (filePath: string, conversionId: ConversionId): Promise<PreviewResult> =>
-    ipcRenderer.invoke('file:getPreview', filePath, conversionId),
+  readFile: (filePath: string): Promise<ReadFileResult> =>
+    ipcRenderer.invoke('file:read', filePath),
+  getFilePreview: (filePath: string): Promise<PreviewResult> =>
+    ipcRenderer.invoke('file:getPreview', filePath),
   convertAndSave: (
     filePath: string,
-    conversionId: ConversionId,
+    outputFormat: OutputFormat,
     options?: { saveNextToInput?: boolean }
   ): Promise<ConvertSaveResult> =>
-    ipcRenderer.invoke('convert:save', filePath, conversionId, options),
+    ipcRenderer.invoke('convert:save', filePath, outputFormat, options),
   convertAndSaveBatch: (
     filePaths: string[],
     outputDir: string,
-    conversionId: ConversionId
+    outputFormat: OutputFormat
   ): Promise<BatchSaveResult> =>
-    ipcRenderer.invoke('convert:saveBatch', filePaths, outputDir, conversionId),
+    ipcRenderer.invoke('convert:saveBatch', filePaths, outputDir, outputFormat),
   onBatchProgress: (callback: (progress: BatchProgress) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, progress: BatchProgress): void => {
       callback(progress)

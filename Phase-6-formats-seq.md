@@ -1,27 +1,22 @@
-# Phase 6 — New Formats
+# Phase 6 — Output-first conversion
 
-**Status: Backend complete — UI pass next**
+**Status: Complete**
 
 ---
 
-## Added conversions (9 total, was 3)
+## Model change
 
-| Input | Outputs |
-|-------|---------|
-| PNG | WebP, JPG, AVIF |
-| JPG | PNG, WebP, AVIF |
-| WebP | PNG, JPG, AVIF |
+* **No input format selector** — accept PNG, JPG, WebP (mixed in one batch)
+* **User picks output only** — WebP, JPG, PNG, or AVIF
+* Per file: detect input → convert, or **copy** when input already matches output
+
+## UI
+
+* Single output format dropdown
+* Files zone border removed
+* Batch toasts distinguish converted vs copied
 
 ## Backend
 
-* Data-driven registry in `convert.ts` (single sharp pipeline per output codec)
-* `webp` input type · `avif` output format
-* Verification script covers all conversion ids
-
-## UI/UX follow-up (next round)
-
-* Format selectors with 3 inputs × up to 3 outputs — consider grouped layout or search
-* Drag-and-drop detect `webp`
-* Format hints for WebP input + AVIF output
-* Collage / asset list stress test with mixed long filenames
-* Open-dialog filters per input type
+* `processFileToPath` — copy via `fs.copyFile` or sharp convert
+* IPC uses `outputFormat` instead of `conversionId` for save/batch/read/preview

@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { getErrorHint, type AppErrorCode } from '@/lib/errorHints'
 import { countStatuses, type FileConversionStatus } from '@/lib/conversionStatus'
-import type { ConversionId } from '@/lib/formatTypes'
-
 type AssetFile = {
   path: string
   fileName: string
@@ -13,7 +11,6 @@ type AssetFile = {
 
 type AssetListProps = {
   files: AssetFile[]
-  conversionId: ConversionId
   formatFileSize: (bytes: number) => string
   statusByPath?: Record<string, FileConversionStatus>
   autoExpand?: boolean
@@ -23,7 +20,6 @@ type AssetListProps = {
 
 export function AssetList({
   files,
-  conversionId,
   formatFileSize,
   statusByPath = {},
   autoExpand = false,
@@ -67,7 +63,7 @@ export function AssetList({
         if (file.previewUrl || loadingRef.current.has(file.path)) continue
 
         loadingRef.current.add(file.path)
-        const result = await window.api.getFilePreview(file.path, conversionId)
+        const result = await window.api.getFilePreview(file.path)
         if (cancelled) return
 
         if (result.ok) {
@@ -81,7 +77,7 @@ export function AssetList({
     return () => {
       cancelled = true
     }
-  }, [open, files, conversionId])
+  }, [open, files])
 
   if (files.length === 0) return null
 

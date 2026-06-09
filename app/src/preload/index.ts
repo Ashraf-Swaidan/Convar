@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
@@ -82,7 +82,8 @@ const api = {
   platform: process.platform,
   minimizeWindow: (): void => ipcRenderer.send('window:minimize'),
   toggleMaximizeWindow: (): void => ipcRenderer.send('window:maximize'),
-  closeWindow: (): void => ipcRenderer.send('window:close')
+  closeWindow: (): void => ipcRenderer.send('window:close'),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 }
 
 if (process.contextIsolated) {

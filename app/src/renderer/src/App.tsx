@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
 import { AssetList } from '@/components/AssetList'
+import { DropOverlay } from '@/components/DropOverlay'
 import { FilePreviewCollage } from '@/components/FilePreviewCollage'
 import { TitleBar } from '@/components/TitleBar'
 import { Button } from '@/components/ui/button'
@@ -18,14 +19,12 @@ import {
   countStatuses,
   type FileConversionStatus
 } from '@/lib/conversionStatus'
+import { resolveDroppedPaths } from '@/lib/detectInputFormat'
+import type { ConversionId, InputFormat, OutputFormat } from '@/lib/formatTypes'
 import {
   getRememberedOutputFolder,
   rememberOutputFolder
 } from '@/lib/outputFolder'
-
-type InputFormat = 'png' | 'jpg'
-type OutputFormat = 'webp' | 'jpg' | 'png'
-type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 
 type FormatOptions = {
   inputFormats: InputFormat[]
@@ -78,6 +77,8 @@ function App(): React.JSX.Element {
   const [error, setError] = useState<AppError | null>(null)
   const [assetListExpanded, setAssetListExpanded] = useState(false)
   const [batchOutputFolder, setBatchOutputFolder] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragDepth = useRef(0)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
@@ -115,7 +116,30 @@ function App(): React.JSX.Element {
     clearResultState()
   }
 
+  const loadPreviews = async (files: SelectedFile[], id: ConversionId): Promise<SelectedFile[]> => {
+    const next = [...files]
+
+    await Promise.all(
+      next.slice(0, PREVIEW_LIMIT).map(async (file, index) => {
+        if (file.previewUrl) return
+
+        const previewResult = await window.api.getFilePreview(file.path, id)
+        if (previewResult.ok) {
+          next[index] = {
+            ...next[index],
+            fileName: previewResult.fileName,
+            previewUrl: previewResult.dataUrl
+          }
+        }
+      })
+    )
+
+    return next
+  }
+
   const loadSelectedFiles = async (filePaths: string[], id: ConversionId): Promise<boolean> => {
+    if (filePaths.length === 0) return true
+
     const files: SelectedFile[] = []
 
     for (const filePath of filePaths) {
@@ -133,20 +157,7 @@ function App(): React.JSX.Element {
       })
     }
 
-    await Promise.all(
-      files.slice(0, PREVIEW_LIMIT).map(async (_, index) => {
-        const previewResult = await window.api.getFilePreview(files[index].path, id)
-        if (previewResult.ok) {
-          files[index] = {
-            ...files[index],
-            fileName: previewResult.fileName,
-            previewUrl: previewResult.dataUrl
-          }
-        }
-      })
-    )
-
-    setSelectedFiles(files)
+    setSelectedFiles(await loadPreviews(files, id))
     return true
   }
 
@@ -157,6 +168,59 @@ function App(): React.JSX.Element {
     if (!filePaths || filePaths.length === 0) return
 
     await loadSelectedFiles(filePaths, conversionId)
+  }
+
+  const handleDragEnter = (event: React.DragEvent): void => {
+    event.preventDefault()
+    if (isConverting) return
+
+    dragDepth.current += 1
+    if (dragDepth.current === 1) setIsDragOver(true)
+  }
+
+  const handleDragOver = (event: React.DragEvent): void => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleDragLeave = (event: React.DragEvent): void => {
+    event.preventDefault()
+    dragDepth.current -= 1
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0
+      setIsDragOver(false)
+    }
+  }
+
+  const handleDrop = async (event: React.DragEvent): Promise<void> => {
+    event.preventDefault()
+    dragDepth.current = 0
+    setIsDragOver(false)
+
+    if (isConverting || !formatOptions) return
+
+    const filePaths = Array.from(event.dataTransfer.files).map((file) =>
+      window.api.getPathForFile(file)
+    )
+
+    if (filePaths.length === 0) return
+
+    const resolved = resolveDroppedPaths(filePaths)
+    if (!resolved.ok) {
+      toast.error(resolved.message)
+      return
+    }
+
+    const nextInput = resolved.inputFormat
+    const nextOutputs = formatOptions.outputOptionsByInput[nextInput]
+    const nextOutput = nextOutputs.includes(outputFormat) ? outputFormat : nextOutputs[0]
+    const nextConversionId = toConversionId(nextInput, nextOutput)
+
+    clearFileState()
+    clearResultState()
+    setInputFormat(nextInput)
+    setOutputFormat(nextOutput)
+    await loadSelectedFiles(resolved.paths, nextConversionId)
   }
 
   const notifyBatchComplete = (results: BatchFileResult[]): void => {
@@ -287,13 +351,17 @@ function App(): React.JSX.Element {
     <main className="flex flex-1 flex-col items-center overflow-y-auto p-6">
       <div className="flex w-full max-w-lg flex-col gap-4 py-2">
         <p className="text-center text-sm text-muted-foreground">
-          Choose formats, select one or more files, then convert.
+          Choose formats, select or drop files, then convert.
         </p>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Input</span>
-            <Select value={inputFormat} onValueChange={handleInputFormatChange}>
+            <Select
+              value={inputFormat}
+              onValueChange={handleInputFormatChange}
+              disabled={isConverting}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -311,7 +379,11 @@ function App(): React.JSX.Element {
 
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Output</span>
-            <Select value={outputFormat} onValueChange={handleOutputFormatChange}>
+            <Select
+              value={outputFormat}
+              onValueChange={handleOutputFormatChange}
+              disabled={isConverting}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -394,7 +466,16 @@ function App(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
-      {content}
+      <div
+        className="relative flex min-h-0 flex-1 flex-col"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <DropOverlay visible={isDragOver} />
+        {content}
+      </div>
     </div>
   )
 }

@@ -66,6 +66,7 @@ declare global {
       minimizeWindow: () => void
       toggleMaximizeWindow: () => void
       closeWindow: () => void
+      getPathForFile: (file: File) => string
     }
   }
 }

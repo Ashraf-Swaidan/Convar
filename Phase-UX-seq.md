@@ -1,6 +1,6 @@
 # Phase UX — Polish & Experience
 
-**Status: In progress (Step 2 complete)**
+**Status: In progress (Step 3 complete)**
 
 **Prerequisite:** Phase 4 complete (`Phase-4-seq.md`)
 
@@ -70,9 +70,11 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * Folder dialog opens at last location (`defaultPath`)
 * **Open output folder** button after batch with ≥1 success
 
-### Step 3 — Drag-and-drop
+### Step 3 — Drag-and-drop ✅
 
 * Drop files onto the window to add to selection
+* Drag-over highlight + hint copy
+* Skips invalid formats with a toast when adding via drop
 
 ### Step 4 — Visual pass
 

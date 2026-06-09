@@ -1,16 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+type ReadFileResult =
+  | { ok: true; byteLength: number }
+  | { ok: false; error: string }
+
+type ConvertSaveResult =
+  | { ok: true; savedPath: string; outputByteLength: number }
+  | { ok: false; error: string }
+  | { canceled: true }
+
 const api = {
   selectFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFile'),
-  readFile: (filePath: string): Promise<{ byteLength: number }> =>
+  readFile: (filePath: string): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', filePath),
-  convertAndSaveWebp: (
-    filePath: string
-  ): Promise<
-    | { canceled: true }
-    | { canceled: false; savedPath: string; outputByteLength: number }
-  > => ipcRenderer.invoke('convert:saveWebp', filePath)
+  convertAndSaveWebp: (filePath: string): Promise<ConvertSaveResult> =>
+    ipcRenderer.invoke('convert:saveWebp', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

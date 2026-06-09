@@ -13,24 +13,46 @@ function App(): React.JSX.Element {
   const [fileSize, setFileSize] = useState<number | null>(null)
   const [savedPath, setSavedPath] = useState<string | null>(null)
   const [convertedSize, setConvertedSize] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSelectFile = async (): Promise<void> => {
-    const filePath = await window.api.selectFile()
-    if (!filePath) return
-
-    setSelectedFilePath(filePath)
+    setError(null)
     setSavedPath(null)
     setConvertedSize(null)
 
-    const { byteLength } = await window.api.readFile(filePath)
-    setFileSize(byteLength)
+    const filePath = await window.api.selectFile()
+    if (!filePath) return
+
+    const readResult = await window.api.readFile(filePath)
+    if (!readResult.ok) {
+      setSelectedFilePath(null)
+      setFileSize(null)
+      setError(readResult.error)
+      return
+    }
+
+    setSelectedFilePath(filePath)
+    setFileSize(readResult.byteLength)
   }
 
   const handleConvert = async (): Promise<void> => {
-    if (!selectedFilePath) return
+    setError(null)
+    setSavedPath(null)
+    setConvertedSize(null)
+
+    if (!selectedFilePath) {
+      setError('No file selected.')
+      return
+    }
 
     const result = await window.api.convertAndSaveWebp(selectedFilePath)
-    if (result.canceled) return
+
+    if ('canceled' in result) return
+
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
 
     setSavedPath(result.savedPath)
     setConvertedSize(result.outputByteLength)
@@ -61,6 +83,8 @@ function App(): React.JSX.Element {
         <Button type="button" disabled={!selectedFilePath} onClick={handleConvert}>
           Convert
         </Button>
+
+        {error !== null && <p className="text-sm text-destructive">{error}</p>}
 
         {savedPath !== null && convertedSize !== null && (
           <p className="text-sm text-muted-foreground">

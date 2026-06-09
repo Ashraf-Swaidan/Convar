@@ -5,6 +5,10 @@ import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
 import { convertPngToWebp } from './convert'
 
+function isPngFile(filePath: string): boolean {
+  return extname(filePath).toLowerCase() === '.png'
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -66,14 +70,49 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('file:read', async (_, filePath: string) => {
-    const buffer = await readFileBuffer(filePath)
-    return { byteLength: buffer.byteLength }
+    if (!filePath) {
+      return { ok: false as const, error: 'No file selected.' }
+    }
+
+    if (!isPngFile(filePath)) {
+      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
+    }
+
+    try {
+      const buffer = await readFileBuffer(filePath)
+      return { ok: true as const, byteLength: buffer.byteLength }
+    } catch {
+      return { ok: false as const, error: 'Could not read the file.' }
+    }
   })
 
   ipcMain.handle('convert:saveWebp', async (event, inputPath: string) => {
+    if (!inputPath) {
+      return { ok: false as const, error: 'No file selected.' }
+    }
+
+    if (!isPngFile(inputPath)) {
+      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
+    }
+
     const window = BrowserWindow.fromWebContents(event.sender)
-    const input = await readFileBuffer(inputPath)
-    const output = await convertPngToWebp(input)
+
+    let input: Buffer
+    try {
+      input = await readFileBuffer(inputPath)
+    } catch {
+      return { ok: false as const, error: 'Could not read the file.' }
+    }
+
+    let output: Buffer
+    try {
+      output = await convertPngToWebp(input)
+    } catch {
+      return {
+        ok: false as const,
+        error: 'Conversion failed. The file may not be a valid PNG.'
+      }
+    }
 
     const defaultPath = join(
       dirname(inputPath),
@@ -89,10 +128,14 @@ app.whenReady().then(() => {
       return { canceled: true as const }
     }
 
-    await writeFileBuffer(result.filePath, output)
+    try {
+      await writeFileBuffer(result.filePath, output)
+    } catch {
+      return { ok: false as const, error: 'Could not save the file.' }
+    }
 
     return {
-      canceled: false as const,
+      ok: true as const,
       savedPath: result.filePath,
       outputByteLength: output.byteLength
     }

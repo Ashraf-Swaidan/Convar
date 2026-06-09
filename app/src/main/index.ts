@@ -3,10 +3,22 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
-import { convertPngToWebp, convertPngToJpg } from './convert'
+import { convertPngToWebp, convertPngToJpg, convertJpgToPng } from './convert'
+
+type InputFileType = 'png' | 'jpg'
 
 function isPngFile(filePath: string): boolean {
   return extname(filePath).toLowerCase() === '.png'
+}
+
+function isJpgFile(filePath: string): boolean {
+  const ext = extname(filePath).toLowerCase()
+  return ext === '.jpg' || ext === '.jpeg'
+}
+
+const openDialogFilters: Record<InputFileType, Electron.FileFilter[]> = {
+  png: [{ name: 'PNG Images', extensions: ['png'] }],
+  jpg: [{ name: 'JPEG Images', extensions: ['jpg', 'jpeg'] }]
 }
 
 function createWindow(): void {
@@ -55,11 +67,11 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('dialog:selectFile', async (event) => {
+  ipcMain.handle('dialog:selectFile', async (event, inputType: InputFileType) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
       properties: ['openFile'],
-      filters: [{ name: 'PNG Images', extensions: ['png'] }]
+      filters: openDialogFilters[inputType]
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -69,13 +81,17 @@ app.whenReady().then(() => {
     return result.filePaths[0]
   })
 
-  ipcMain.handle('file:read', async (_, filePath: string) => {
+  ipcMain.handle('file:read', async (_, filePath: string, inputType: InputFileType) => {
     if (!filePath) {
       return { ok: false as const, error: 'No file selected.' }
     }
 
-    if (!isPngFile(filePath)) {
+    if (inputType === 'png' && !isPngFile(filePath)) {
       return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
+    }
+
+    if (inputType === 'jpg' && !isJpgFile(filePath)) {
+      return { ok: false as const, error: 'Invalid file type. Please select a JPG file.' }
     }
 
     try {
@@ -177,6 +193,61 @@ app.whenReady().then(() => {
     const result = await dialog.showSaveDialog(window!, {
       defaultPath,
       filters: [{ name: 'JPEG Images', extensions: ['jpg', 'jpeg'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    try {
+      await writeFileBuffer(result.filePath, output)
+    } catch {
+      return { ok: false as const, error: 'Could not save the file.' }
+    }
+
+    return {
+      ok: true as const,
+      savedPath: result.filePath,
+      outputByteLength: output.byteLength
+    }
+  })
+
+  ipcMain.handle('convert:savePng', async (event, inputPath: string) => {
+    if (!inputPath) {
+      return { ok: false as const, error: 'No file selected.' }
+    }
+
+    if (!isJpgFile(inputPath)) {
+      return { ok: false as const, error: 'Invalid file type. Please select a JPG file.' }
+    }
+
+    const window = BrowserWindow.fromWebContents(event.sender)
+
+    let input: Buffer
+    try {
+      input = await readFileBuffer(inputPath)
+    } catch {
+      return { ok: false as const, error: 'Could not read the file.' }
+    }
+
+    let output: Buffer
+    try {
+      output = await convertJpgToPng(input)
+    } catch {
+      return {
+        ok: false as const,
+        error: 'Conversion failed. The file may not be a valid JPG.'
+      }
+    }
+
+    const defaultPath = join(
+      dirname(inputPath),
+      `${basename(inputPath, extname(inputPath))}.png`
+    )
+
+    const result = await dialog.showSaveDialog(window!, {
+      defaultPath,
+      filters: [{ name: 'PNG Images', extensions: ['png'] }]
     })
 
     if (result.canceled || !result.filePath) {

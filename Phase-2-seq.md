@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: In progress (Step 1 complete)**
+**Status: In progress (Steps 1–2 complete)**
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -127,7 +127,7 @@ Checkpoint:
 
 ---
 
-### Step 2 — Add JPG → PNG (Duplication Gets Painful)
+### Step 2 — Add JPG → PNG (Duplication Gets Painful) ✅
 
 Same approach again:
 

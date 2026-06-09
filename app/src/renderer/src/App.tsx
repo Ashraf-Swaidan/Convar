@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
+type InputFileType = 'png' | 'jpg'
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -9,33 +11,42 @@ function formatFileSize(bytes: number): string {
 }
 
 function App(): React.JSX.Element {
+  const [inputType, setInputType] = useState<InputFileType | null>(null)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [fileSize, setFileSize] = useState<number | null>(null)
   const [savedPath, setSavedPath] = useState<string | null>(null)
   const [convertedSize, setConvertedSize] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSelectFile = async (): Promise<void> => {
+  const handleSelectFile = async (type: InputFileType): Promise<void> => {
     setError(null)
     setSavedPath(null)
     setConvertedSize(null)
 
-    const filePath = await window.api.selectFile()
+    const filePath = await window.api.selectFile(type)
     if (!filePath) return
 
-    const readResult = await window.api.readFile(filePath)
+    const readResult = await window.api.readFile(filePath, type)
     if (!readResult.ok) {
+      setInputType(null)
       setSelectedFilePath(null)
       setFileSize(null)
       setError(readResult.error)
       return
     }
 
+    setInputType(type)
     setSelectedFilePath(filePath)
     setFileSize(readResult.byteLength)
   }
 
-  const handleConvertToWebp = async (): Promise<void> => {
+  const runConvert = async (
+    convert: (path: string) => Promise<
+      | { ok: true; savedPath: string; outputByteLength: number }
+      | { ok: false; error: string }
+      | { canceled: true }
+    >
+  ): Promise<void> => {
     setError(null)
     setSavedPath(null)
     setConvertedSize(null)
@@ -45,30 +56,7 @@ function App(): React.JSX.Element {
       return
     }
 
-    const result = await window.api.convertAndSaveWebp(selectedFilePath)
-
-    if ('canceled' in result) return
-
-    if (!result.ok) {
-      setError(result.error)
-      return
-    }
-
-    setSavedPath(result.savedPath)
-    setConvertedSize(result.outputByteLength)
-  }
-
-  const handleConvertToJpg = async (): Promise<void> => {
-    setError(null)
-    setSavedPath(null)
-    setConvertedSize(null)
-
-    if (!selectedFilePath) {
-      setError('No file selected.')
-      return
-    }
-
-    const result = await window.api.convertAndSaveJpg(selectedFilePath)
+    const result = await convert(selectedFilePath)
 
     if ('canceled' in result) return
 
@@ -85,11 +73,18 @@ function App(): React.JSX.Element {
     <div className="flex min-h-svh flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-lg flex-col gap-4">
         <h1 className="text-xl font-semibold tracking-tight">Convar</h1>
-        <p className="text-sm text-muted-foreground">Convert PNG to WebP or JPG locally.</p>
+        <p className="text-sm text-muted-foreground">
+          Convert PNG ↔ JPG / WebP locally. (temporary multi-button UI)
+        </p>
 
-        <Button type="button" onClick={handleSelectFile}>
-          Select File
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" onClick={() => handleSelectFile('png')}>
+            Select PNG
+          </Button>
+          <Button type="button" variant="outline" onClick={() => handleSelectFile('jpg')}>
+            Select JPG
+          </Button>
+        </div>
 
         <Textarea
           readOnly
@@ -99,16 +94,33 @@ function App(): React.JSX.Element {
           className="resize-none"
         />
 
-        {fileSize !== null && (
-          <p className="text-sm text-muted-foreground">File size: {formatFileSize(fileSize)}</p>
+        {fileSize !== null && inputType !== null && (
+          <p className="text-sm text-muted-foreground">
+            {inputType.toUpperCase()} file size: {formatFileSize(fileSize)}
+          </p>
         )}
 
-        <div className="flex gap-2">
-          <Button type="button" disabled={!selectedFilePath} onClick={handleConvertToWebp}>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={inputType !== 'png' || !selectedFilePath}
+            onClick={() => runConvert(window.api.convertAndSaveWebp)}
+          >
             Convert to WebP
           </Button>
-          <Button type="button" disabled={!selectedFilePath} onClick={handleConvertToJpg}>
+          <Button
+            type="button"
+            disabled={inputType !== 'png' || !selectedFilePath}
+            onClick={() => runConvert(window.api.convertAndSaveJpg)}
+          >
             Convert to JPG
+          </Button>
+          <Button
+            type="button"
+            disabled={inputType !== 'jpg' || !selectedFilePath}
+            onClick={() => runConvert(window.api.convertAndSavePng)}
+          >
+            Convert to PNG
           </Button>
         </div>
 

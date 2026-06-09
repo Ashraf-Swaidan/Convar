@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+type InputFileType = 'png' | 'jpg'
+
 type ReadFileResult =
   | { ok: true; byteLength: number }
   | { ok: false; error: string }
@@ -11,13 +13,16 @@ type ConvertSaveResult =
   | { canceled: true }
 
 const api = {
-  selectFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFile'),
-  readFile: (filePath: string): Promise<ReadFileResult> =>
-    ipcRenderer.invoke('file:read', filePath),
+  selectFile: (inputType: InputFileType): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectFile', inputType),
+  readFile: (filePath: string, inputType: InputFileType): Promise<ReadFileResult> =>
+    ipcRenderer.invoke('file:read', filePath, inputType),
   convertAndSaveWebp: (filePath: string): Promise<ConvertSaveResult> =>
     ipcRenderer.invoke('convert:saveWebp', filePath),
   convertAndSaveJpg: (filePath: string): Promise<ConvertSaveResult> =>
-    ipcRenderer.invoke('convert:saveJpg', filePath)
+    ipcRenderer.invoke('convert:saveJpg', filePath),
+  convertAndSavePng: (filePath: string): Promise<ConvertSaveResult> =>
+    ipcRenderer.invoke('convert:savePng', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

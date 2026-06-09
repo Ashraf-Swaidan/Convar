@@ -23,15 +23,37 @@ type ConvertSaveResult =
   | { ok: false; error: string }
   | { canceled: true }
 
+type BatchFileResult =
+  | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
+  | { inputPath: string; ok: false; error: string }
+
+type BatchSaveResult =
+  | { ok: true; results: BatchFileResult[] }
+  | { ok: false; error: string }
+
+type BatchProgress = {
+  current: number
+  total: number
+  fileName: string
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
     api: {
       getFormatOptions: () => Promise<FormatOptions>
       selectFile: (conversionId: ConversionId) => Promise<string | null>
+      selectFiles: (conversionId: ConversionId) => Promise<string[] | null>
+      selectOutputFolder: () => Promise<string | null>
       readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>
       convertAndSave: (filePath: string, conversionId: ConversionId) => Promise<ConvertSaveResult>
+      convertAndSaveBatch: (
+        filePaths: string[],
+        outputDir: string,
+        conversionId: ConversionId
+      ) => Promise<BatchSaveResult>
+      onBatchProgress: (callback: (progress: BatchProgress) => void) => () => void
     }
   }
 }

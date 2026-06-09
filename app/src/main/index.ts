@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
 import { createPreviewDataUrl } from './preview'
+import { convertBatchToOutputDir } from './batch'
 import {
   runConversion,
   conversionMeta,
@@ -86,6 +87,39 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog(window!, {
       properties: ['openFile'],
       filters: getOpenDialogFilters(meta.inputType)
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:selectFiles', async (event, conversionId: ConversionId) => {
+    const resolved = resolveConversion(conversionId)
+    if (!resolved.ok) {
+      return null
+    }
+
+    const { meta } = resolved
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(window!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: getOpenDialogFilters(meta.inputType)
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return result.filePaths
+  })
+
+  ipcMain.handle('dialog:selectOutputFolder', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(window!, {
+      properties: ['openDirectory', 'createDirectory']
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -206,6 +240,36 @@ app.whenReady().then(() => {
         savedPath: result.filePath,
         outputByteLength: output.byteLength
       }
+    }
+  )
+
+  ipcMain.handle(
+    'convert:saveBatch',
+    async (event, inputPaths: string[], outputDir: string, conversionId: ConversionId) => {
+      const resolved = resolveConversion(conversionId)
+      if (!resolved.ok) {
+        return { ok: false as const, error: resolved.error }
+      }
+
+      if (!inputPaths.length) {
+        return { ok: false as const, error: 'No files selected.' }
+      }
+
+      if (!outputDir) {
+        return { ok: false as const, error: 'No output folder selected.' }
+      }
+
+      const sender = event.sender
+      const results = await convertBatchToOutputDir(
+        inputPaths,
+        outputDir,
+        resolved.conversionId,
+        (progress) => {
+          sender.send('batch:progress', progress)
+        }
+      )
+
+      return { ok: true as const, results }
     }
   )
 

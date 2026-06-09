@@ -77,6 +77,8 @@ A working end-to-end file transformation pipeline.
 
 Detailed sequence: `Phase-2-seq.md`
 
+**Phase 3:** `Phase-3-seq.md` — batch processing (in progress)
+
 Problem: one conversion is not enough.
 
 Add:

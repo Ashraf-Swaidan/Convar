@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
+import { AppFooter } from '@/components/AppFooter'
 import { AssetList } from '@/components/AssetList'
 import { BatchFailureSummary, type BatchFailure } from '@/components/BatchFailureSummary'
+import { ConversionHistory } from '@/components/ConversionHistory'
 import { DropOverlay } from '@/components/DropOverlay'
 import { FilePreviewCollage } from '@/components/FilePreviewCollage'
 import { TitleBar } from '@/components/TitleBar'
@@ -20,6 +22,13 @@ import {
   countStatuses,
   type FileConversionStatus
 } from '@/lib/conversionStatus'
+import { conversionLabel } from '@/lib/conversionLabel'
+import {
+  addConversionHistoryEntry,
+  clearConversionHistory,
+  loadConversionHistory,
+  type ConversionHistoryEntry
+} from '@/lib/conversionHistory'
 import { resolvePathsToAdd } from '@/lib/detectInputFormat'
 import { inputFormatHints, outputFormatHints } from '@/lib/formatHints'
 import type { ConversionId, InputFormat, OutputFormat } from '@/lib/formatTypes'
@@ -83,10 +92,15 @@ function App(): React.JSX.Element {
   const [isDragOver, setIsDragOver] = useState(false)
   const [saveNextToInput, setSaveNextToInputState] = useState(getSaveNextToInput)
   const [batchFailures, setBatchFailures] = useState<BatchFailure[]>([])
+  const [historyEntries, setHistoryEntries] = useState<ConversionHistoryEntry[]>(() =>
+    loadConversionHistory()
+  )
+  const [appVersion, setAppVersion] = useState('…')
   const dragDepth = useRef(0)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
+    window.api.getAppVersion().then(setAppVersion)
   }, [])
 
   const outputOptions = formatOptions?.outputOptionsByInput[inputFormat] ?? []
@@ -126,6 +140,34 @@ function App(): React.JSX.Element {
   const handleSaveNextToInputChange = (checked: boolean): void => {
     setSaveNextToInputState(checked)
     setSaveNextToInput(checked)
+  }
+
+  const recordHistory = (
+    inputPath: string,
+    outputPath: string,
+    outputByteLength: number
+  ): void => {
+    if (!formatOptions) return
+
+    setHistoryEntries(
+      addConversionHistoryEntry({
+        inputPath,
+        outputPath,
+        conversionId,
+        conversionLabel: conversionLabel(conversionId, formatOptions.formatLabels),
+        outputByteLength
+      })
+    )
+  }
+
+  const handleClearHistory = (): void => {
+    clearConversionHistory()
+    setHistoryEntries([])
+  }
+
+  const handleOpenHistoryOutput = async (path: string): Promise<void> => {
+    const result = await window.api.openPath(path)
+    if (!result.ok) toast.error(result.error)
   }
 
   const handleInputFormatChange = (value: InputFormat): void => {
@@ -353,6 +395,7 @@ function App(): React.JSX.Element {
         }
 
         setStatusByPath({ [file.path]: { state: 'success' } })
+        recordHistory(file.path, result.savedPath, result.outputByteLength)
         toast.success(`Saved ${file.fileName}`, {
           description: formatFileSize(result.outputByteLength)
         })
@@ -392,6 +435,11 @@ function App(): React.JSX.Element {
       )
       setAssetListExpanded(true)
       setBatchOutputFolder(outputDir)
+      for (const entry of result.results) {
+        if (entry.ok) {
+          recordHistory(entry.inputPath, entry.savedPath, entry.outputByteLength)
+        }
+      }
       notifyBatchComplete(result.results)
     } finally {
       setIsConverting(false)
@@ -616,6 +664,13 @@ function App(): React.JSX.Element {
 
           {error !== null && <AppErrorDisplay error={error} />}
 
+          <ConversionHistory
+            entries={historyEntries}
+            formatFileSize={formatFileSize}
+            onOpenOutput={handleOpenHistoryOutput}
+            onClear={handleClearHistory}
+          />
+
           {isDev && selectedFiles.length > 1 && (
             <button
               type="button"
@@ -642,6 +697,7 @@ function App(): React.JSX.Element {
       >
         <DropOverlay visible={isDragOver} />
         {content}
+        <AppFooter version={appVersion} />
       </div>
     </div>
   )

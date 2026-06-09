@@ -34,6 +34,7 @@ function createWindow(): void {
     width: 900,
     height: 670,
     show: false,
+    title: 'Convar',
     autoHideMenuBar: true,
     backgroundColor: '#fdfdfd',
     ...(isMac
@@ -70,6 +71,8 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('conversions:getFormatOptions', () => getFormatOptions())
+
+  ipcMain.handle('app:getVersion', () => app.getVersion())
 
   ipcMain.on('window:minimize', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()

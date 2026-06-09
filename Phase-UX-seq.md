@@ -1,6 +1,6 @@
 # Phase UX — Polish & Experience
 
-**Status: In progress (Step 4 complete)**
+**Status: Complete (build smoke test deferred)**
 
 **Prerequisite:** Phase 4 complete (`Phase-4-seq.md`)
 
@@ -91,9 +91,14 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * Batch failure summary grouped by error code
 * “Save next to original file” toggle (single-file, remembered in session)
 
-### Step 6 — Build / package smoke test
+### Step 6 — Ship polish ✅
 
-* `npm run build:win`, app icon, window title
+* Window title `Convar`
+* Version footer via `app.getVersion()`
+
+### Step 7 — Build / package smoke test (deferred)
+
+* `npm run build:win`, app icon, installer
 
 ---
 

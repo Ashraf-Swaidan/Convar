@@ -50,6 +50,7 @@ type BatchProgress = {
 const api = {
   getFormatOptions: (): Promise<FormatOptions> =>
     ipcRenderer.invoke('conversions:getFormatOptions'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   selectFile: (conversionId: ConversionId): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectFile', conversionId),
   selectFiles: (conversionId: ConversionId): Promise<string[] | null> =>

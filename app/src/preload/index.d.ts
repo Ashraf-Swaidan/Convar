@@ -49,6 +49,7 @@ declare global {
     electron: ElectronAPI
     api: {
       getFormatOptions: () => Promise<FormatOptions>
+      getAppVersion: () => Promise<string>
       selectFile: (conversionId: ConversionId) => Promise<string | null>
       selectFiles: (conversionId: ConversionId) => Promise<string[] | null>
       selectOutputFolder: (defaultPath?: string) => Promise<string | null>

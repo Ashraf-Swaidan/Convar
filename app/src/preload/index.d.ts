@@ -5,6 +5,7 @@ declare global {
     electron: ElectronAPI
     api: {
       selectFile: () => Promise<string | null>
+      readFile: (filePath: string) => Promise<{ byteLength: number }>
     }
   }
 }

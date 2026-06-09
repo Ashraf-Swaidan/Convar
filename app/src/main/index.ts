@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { readFileBuffer } from './file'
 
 function createWindow(): void {
   // Create the browser window.
@@ -61,6 +62,11 @@ app.whenReady().then(() => {
     }
 
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('file:read', async (_, filePath: string) => {
+    const buffer = await readFileBuffer(filePath)
+    return { byteLength: buffer.byteLength }
   })
 
   createWindow()

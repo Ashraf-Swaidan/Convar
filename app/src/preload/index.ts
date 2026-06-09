@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
-  selectFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFile')
+  selectFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFile'),
+  readFile: (filePath: string): Promise<{ byteLength: number }> =>
+    ipcRenderer.invoke('file:read', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

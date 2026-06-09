@@ -2,14 +2,24 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function App(): React.JSX.Element {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [fileSize, setFileSize] = useState<number | null>(null)
 
   const handleSelectFile = async (): Promise<void> => {
     const filePath = await window.api.selectFile()
-    if (filePath) {
-      setSelectedFilePath(filePath)
-    }
+    if (!filePath) return
+
+    setSelectedFilePath(filePath)
+
+    const { byteLength } = await window.api.readFile(filePath)
+    setFileSize(byteLength)
   }
 
   return (
@@ -29,6 +39,10 @@ function App(): React.JSX.Element {
           rows={3}
           className="resize-none"
         />
+
+        {fileSize !== null && (
+          <p className="text-sm text-muted-foreground">File size: {formatFileSize(fileSize)}</p>
+        )}
 
         <Button type="button" disabled={!selectedFilePath}>
           Convert

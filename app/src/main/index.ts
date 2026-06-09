@@ -39,7 +39,7 @@ function createWindow(): void {
     ...(isMac
       ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 } }
       : { frame: false }),
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform !== 'darwin' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -63,7 +63,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.convar.app')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

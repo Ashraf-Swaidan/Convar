@@ -1,5 +1,5 @@
 import { Minus, Square, X } from 'lucide-react'
-import lightLogo from '@/assets/convar-light-logo.png'
+import darkLogo from '@/assets/convar-dark-logo.png'
 
 const isMac = window.api.platform === 'darwin'
 
@@ -9,17 +9,14 @@ export function TitleBar(): React.JSX.Element {
       <div
         className={`app-no-drag flex items-center gap-2.5 ${isMac ? 'pl-16' : ''}`}
       >
-        {/* Light logo on a soft gray tile so the white squircle reads on our light chrome */}
-        <div className="rounded-[10px] bg-muted/90 p-px shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04]">
-          <img
-            src={lightLogo}
-            alt=""
-            className="size-7 rounded-[9px] object-cover"
-            draggable={false}
-          />
-        </div>
-        <span className="text-[13px] font-semibold tracking-tight text-foreground/90">
-          Convar
+        <img
+          src={darkLogo}
+          alt=""
+          className="size-9 rounded-[10px] object-cover"
+          draggable={false}
+        />
+        <span className="text-[13px] font-semibold tracking-[0.08em] text-foreground/90">
+          CONVAR
         </span>
       </div>
 

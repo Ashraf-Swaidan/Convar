@@ -56,11 +56,13 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 * `BatchFailureSummary` — group batch failures by `code`
 * App stores `{ code, message }` instead of plain strings
 
-### Step 1 — Success UI + batch results panel
+### Step 1 — Toast + inline asset status ✅
 
-* Success card for single-file save (green border, path copy-friendly)
-* Batch success summary with output folder path
-* Per-file ✓ / ✗ in file list after batch
+* Sonner toasts on convert (no success card)
+* Asset list header: ✓ 2 · ✗ 1 counts
+* Table status column + thumbnail badges; hover failed for error detail
+* Collage badges on first 3 previews
+* Dev-only “preview mixed results UI” button for testing failure states
 
 ### Step 2 — Output folder memory + open folder
 

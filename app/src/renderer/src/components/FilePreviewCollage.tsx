@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Check, X } from 'lucide-react'
+import type { FileConversionStatus } from '@/lib/conversionStatus'
 
 const MAX_PREVIEWS = 3
 
@@ -17,15 +19,18 @@ type PreviewFile = {
 type FilePreviewCollageProps = {
   files: PreviewFile[]
   totalCount: number
+  statusByPath?: Record<string, FileConversionStatus>
 }
 
 export function FilePreviewCollage({
   files,
-  totalCount
+  totalCount,
+  statusByPath = {}
 }: FilePreviewCollageProps): React.JSX.Element {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const previewFiles = files.filter((file) => file.previewUrl).slice(0, MAX_PREVIEWS)
   const extraCount = totalCount > MAX_PREVIEWS ? totalCount - MAX_PREVIEWS : 0
+  const hasStatuses = Object.keys(statusByPath).length > 0
 
   if (previewFiles.length === 0 && totalCount === 0) {
     return (
@@ -44,7 +49,7 @@ export function FilePreviewCollage({
   const stackWidth = previewFiles.length === 1 ? 72 : previewFiles.length === 2 ? 100 : 128
 
   return (
-    <div className="flex justify-center py-2">
+    <div className="flex flex-col items-center gap-2 py-2">
       <div
         className="relative h-[4.5rem]"
         style={{ width: `${stackWidth + (extraCount > 0 ? 28 : 0)}px` }}
@@ -52,6 +57,7 @@ export function FilePreviewCollage({
         {previewFiles.map((file, index) => {
           const style = STYLES[index]
           const isHovered = hoveredIndex === index
+          const status = statusByPath[file.path]
           return (
             <div
               key={file.path}
@@ -69,6 +75,21 @@ export function FilePreviewCollage({
                 className="size-full object-cover"
                 draggable={false}
               />
+              {status?.state === 'success' && (
+                <span className="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm ring-2 ring-background">
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+              )}
+              {status?.state === 'failed' && (
+                <span className="group/fail absolute -right-1 -bottom-1">
+                  <span className="flex size-5 cursor-help items-center justify-center rounded-full bg-destructive text-white shadow-sm ring-2 ring-background">
+                    <X className="size-3" strokeWidth={3} />
+                  </span>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max max-w-[200px] -translate-x-1/2 rounded-md border border-border/80 bg-foreground px-2 py-1.5 text-[10px] leading-snug text-background shadow-md group-hover/fail:block">
+                    {status.error}
+                  </span>
+                </span>
+              )}
             </div>
           )
         })}
@@ -78,6 +99,9 @@ export function FilePreviewCollage({
           </span>
         )}
       </div>
+      {hasStatuses && totalCount > MAX_PREVIEWS && (
+        <p className="text-xs text-muted-foreground">Status shown on first {MAX_PREVIEWS} previews</p>
+      )}
     </div>
   )
 }

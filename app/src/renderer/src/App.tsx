@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
 import { AssetList } from '@/components/AssetList'
-import { BatchFailureSummary } from '@/components/BatchFailureSummary'
 import { FilePreviewCollage } from '@/components/FilePreviewCollage'
 import { TitleBar } from '@/components/TitleBar'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,11 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { appError, type AppError, type AppErrorCode } from '@/lib/errorHints'
+import {
+  buildStatusMapFromBatch,
+  countStatuses,
+  type FileConversionStatus
+} from '@/lib/conversionStatus'
 
 type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
@@ -42,6 +47,7 @@ type BatchProgress = {
 }
 
 const PREVIEW_LIMIT = 3
+const isDev = import.meta.env.DEV
 
 function toConversionId(input: InputFormat, output: OutputFormat): ConversionId {
   return `${input}-${output}` as ConversionId
@@ -62,12 +68,11 @@ function App(): React.JSX.Element {
   const [inputFormat, setInputFormat] = useState<InputFormat>('png')
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp')
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
-  const [savedPath, setSavedPath] = useState<string | null>(null)
-  const [convertedSize, setConvertedSize] = useState<number | null>(null)
-  const [batchResults, setBatchResults] = useState<BatchFileResult[] | null>(null)
+  const [statusByPath, setStatusByPath] = useState<Record<string, FileConversionStatus>>({})
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
   const [isConverting, setIsConverting] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
+  const [assetListExpanded, setAssetListExpanded] = useState(false)
 
   useEffect(() => {
     window.api.getFormatOptions().then(setFormatOptions)
@@ -81,11 +86,10 @@ function App(): React.JSX.Element {
   }
 
   const clearResultState = (): void => {
-    setSavedPath(null)
-    setConvertedSize(null)
-    setBatchResults(null)
+    setStatusByPath({})
     setBatchProgress(null)
     setError(null)
+    setAssetListExpanded(false)
   }
 
   const handleInputFormatChange = (value: InputFormat): void => {
@@ -149,6 +153,22 @@ function App(): React.JSX.Element {
     await loadSelectedFiles(filePaths, conversionId)
   }
 
+  const notifyBatchComplete = (results: BatchFileResult[]): void => {
+    const { success, failed } = countStatuses(buildStatusMapFromBatch(results))
+
+    if (failed === 0) {
+      toast.success(`${success} file${success === 1 ? '' : 's'} converted`)
+      return
+    }
+
+    if (success === 0) {
+      toast.error(`All ${failed} file${failed === 1 ? '' : 's'} failed`)
+      return
+    }
+
+    toast.warning(`${success} succeeded, ${failed} failed`)
+  }
+
   const handleConvert = async (): Promise<void> => {
     clearResultState()
 
@@ -161,17 +181,25 @@ function App(): React.JSX.Element {
 
     try {
       if (selectedFiles.length === 1) {
-        const result = await window.api.convertAndSave(selectedFiles[0].path, conversionId)
+        const file = selectedFiles[0]
+        const result = await window.api.convertAndSave(file.path, conversionId)
 
         if ('canceled' in result) return
 
         if (!result.ok) {
           setError({ code: result.code, message: result.error })
+          setStatusByPath({
+            [file.path]: { state: 'failed', error: result.error, code: result.code }
+          })
+          setAssetListExpanded(true)
+          toast.error('Conversion failed')
           return
         }
 
-        setSavedPath(result.savedPath)
-        setConvertedSize(result.outputByteLength)
+        setStatusByPath({ [file.path]: { state: 'success' } })
+        toast.success(`Saved ${file.fileName}`, {
+          description: formatFileSize(result.outputByteLength)
+        })
         return
       }
 
@@ -188,14 +216,43 @@ function App(): React.JSX.Element {
 
       if (!result.ok) {
         setError({ code: result.code, message: result.error })
+        toast.error(result.error)
         return
       }
 
-      setBatchResults(result.results)
+      setStatusByPath(buildStatusMapFromBatch(result.results))
+      setAssetListExpanded(true)
+      notifyBatchComplete(result.results)
     } finally {
       setIsConverting(false)
       setBatchProgress(null)
     }
+  }
+
+  const handleDevMockMixedResults = (): void => {
+    if (selectedFiles.length === 0) return
+
+    const results: BatchFileResult[] = selectedFiles.map((file, index) => {
+      if (index === 0) {
+        return {
+          inputPath: file.path,
+          ok: false as const,
+          error: 'PNG → WebP conversion failed. The file may not be a valid PNG.',
+          code: 'conversion_failed' as AppErrorCode
+        }
+      }
+      return {
+        inputPath: file.path,
+        ok: true as const,
+        savedPath: `C:\\output\\${file.fileName.replace(/\.[^.]+$/, '.webp')}`,
+        outputByteLength: file.byteLength
+      }
+    })
+
+    setStatusByPath(buildStatusMapFromBatch(results))
+    setAssetListExpanded(true)
+    notifyBatchComplete(results)
+    toast.message('Dev preview: mixed batch results')
   }
 
   const content = !formatOptions ? (
@@ -249,12 +306,18 @@ function App(): React.JSX.Element {
           Select Files
         </Button>
 
-        <FilePreviewCollage files={selectedFiles} totalCount={selectedFiles.length} />
+        <FilePreviewCollage
+          files={selectedFiles}
+          totalCount={selectedFiles.length}
+          statusByPath={statusByPath}
+        />
 
         <AssetList
           files={selectedFiles}
           conversionId={conversionId}
           formatFileSize={formatFileSize}
+          statusByPath={statusByPath}
+          autoExpand={assetListExpanded}
         />
 
         {batchProgress !== null && (
@@ -285,30 +348,14 @@ function App(): React.JSX.Element {
 
         {error !== null && <AppErrorDisplay error={error} />}
 
-        {savedPath !== null && convertedSize !== null && (
-          <p className="text-sm text-muted-foreground">
-            Saved {formatFileSize(convertedSize)} to: {savedPath}
-          </p>
-        )}
-
-        {batchResults !== null && (
-          <div className="flex flex-col gap-2 text-sm">
-            <p className="text-muted-foreground">
-              Batch complete:{' '}
-              {batchResults.filter((result) => result.ok).length} succeeded,{' '}
-              {batchResults.filter((result) => !result.ok).length} failed
-            </p>
-            {batchResults.some((result) => !result.ok) && (
-              <BatchFailureSummary
-                failures={
-                  batchResults.filter(
-                    (result): result is Extract<BatchFileResult, { ok: false }> => !result.ok
-                  )
-                }
-                fileNameFromPath={fileNameFromPath}
-              />
-            )}
-          </div>
+        {isDev && selectedFiles.length > 1 && (
+          <button
+            type="button"
+            onClick={handleDevMockMixedResults}
+            className="text-center text-[11px] text-muted-foreground/70 underline-offset-2 hover:text-muted-foreground hover:underline"
+          >
+            Dev: preview mixed results UI
+          </button>
         )}
       </div>
     </main>

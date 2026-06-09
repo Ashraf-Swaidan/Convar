@@ -76,7 +76,11 @@ const api = {
     return () => {
       ipcRenderer.removeListener('batch:progress', listener)
     }
-  }
+  },
+  platform: process.platform,
+  minimizeWindow: (): void => ipcRenderer.send('window:minimize'),
+  toggleMaximizeWindow: (): void => ipcRenderer.send('window:maximize'),
+  closeWindow: (): void => ipcRenderer.send('window:close')
 }
 
 if (process.contextIsolated) {

@@ -28,11 +28,17 @@ function resolveConversion(conversionId: string): ResolvedConversion {
 }
 
 function createWindow(): void {
+  const isMac = process.platform === 'darwin'
+
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    backgroundColor: '#fdfdfd',
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 } }
+      : { frame: false }),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -64,6 +70,24 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('conversions:getFormatOptions', () => getFormatOptions())
+
+  ipcMain.on('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+
+  ipcMain.on('window:maximize', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    if (window.isMaximized()) {
+      window.unmaximize()
+    } else {
+      window.maximize()
+    }
+  })
+
+  ipcMain.on('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
 
   ipcMain.handle('dialog:selectFile', async (event, conversionId: ConversionId) => {
     const resolved = resolveConversion(conversionId)

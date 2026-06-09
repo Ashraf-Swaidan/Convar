@@ -61,6 +61,10 @@ declare global {
         conversionId: ConversionId
       ) => Promise<BatchSaveResult>
       onBatchProgress: (callback: (progress: BatchProgress) => void) => () => void
+      platform: string
+      minimizeWindow: () => void
+      toggleMaximizeWindow: () => void
+      closeWindow: () => void
     }
   }
 }

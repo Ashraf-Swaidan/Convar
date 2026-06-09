@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AppErrorDisplay } from '@/components/AppErrorDisplay'
 import { BatchFailureSummary } from '@/components/BatchFailureSummary'
+import { FilePreviewCollage } from '@/components/FilePreviewCollage'
+import { TitleBar } from '@/components/TitleBar'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -9,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { appError, type AppError, type AppErrorCode, type BatchFailure } from '@/lib/errorHints'
+import { appError, type AppError, type AppErrorCode } from '@/lib/errorHints'
 
 type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
@@ -37,6 +39,8 @@ type BatchProgress = {
   total: number
   fileName: string
 }
+
+const PREVIEW_LIMIT = 3
 
 function toConversionId(input: InputFormat, output: OutputFormat): ConversionId {
   return `${input}-${output}` as ConversionId
@@ -118,16 +122,18 @@ function App(): React.JSX.Element {
       })
     }
 
-    if (files.length > 0) {
-      const previewResult = await window.api.getFilePreview(files[0].path, id)
-      if (previewResult.ok) {
-        files[0] = {
-          ...files[0],
-          fileName: previewResult.fileName,
-          previewUrl: previewResult.dataUrl
+    await Promise.all(
+      files.slice(0, PREVIEW_LIMIT).map(async (_, index) => {
+        const previewResult = await window.api.getFilePreview(files[index].path, id)
+        if (previewResult.ok) {
+          files[index] = {
+            ...files[index],
+            fileName: previewResult.fileName,
+            previewUrl: previewResult.dataUrl
+          }
         }
-      }
-    }
+      })
+    )
 
     setSelectedFiles(files)
     return true
@@ -191,25 +197,14 @@ function App(): React.JSX.Element {
     }
   }
 
-  if (!formatOptions) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </div>
-    )
-  }
-
-  const firstPreview = selectedFiles.find((file) => file.previewUrl)?.previewUrl ?? null
-  const succeededCount = batchResults?.filter((result) => result.ok).length ?? 0
-  const failedResults: BatchFailure[] =
-    batchResults?.filter((result): result is Extract<BatchFileResult, { ok: false }> => !result.ok) ??
-    []
-
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center p-6">
-      <div className="flex w-full max-w-lg flex-col gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">Convar</h1>
-        <p className="text-sm text-muted-foreground">
+  const content = !formatOptions ? (
+    <div className="flex flex-1 items-center justify-center p-6">
+      <p className="text-sm text-muted-foreground">Loading…</p>
+    </div>
+  ) : (
+    <main className="flex flex-1 flex-col items-center overflow-y-auto p-6">
+      <div className="flex w-full max-w-lg flex-col gap-4 py-2">
+        <p className="text-center text-sm text-muted-foreground">
           Choose formats, select one or more files, then convert.
         </p>
 
@@ -253,30 +248,16 @@ function App(): React.JSX.Element {
           Select Files
         </Button>
 
-        {selectedFiles.length > 0 ? (
-          <div className="flex flex-col gap-2 rounded-lg border p-3">
-            {firstPreview !== null && (
-              <img
-                src={firstPreview}
-                alt={`Preview of ${selectedFiles[0].fileName}`}
-                className="max-h-40 w-full rounded-md object-contain"
-              />
-            )}
-            <p className="text-sm font-medium">
-              {selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} selected
-            </p>
-            <ul className="max-h-32 space-y-1 overflow-y-auto text-sm text-muted-foreground">
-              {selectedFiles.map((file) => (
-                <li key={file.path} className="truncate">
-                  {file.fileName} · {formatFileSize(file.byteLength)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            No files selected
-          </div>
+        <FilePreviewCollage files={selectedFiles} totalCount={selectedFiles.length} />
+
+        {selectedFiles.length > 0 && (
+          <ul className="max-h-24 space-y-0.5 overflow-y-auto text-center text-xs text-muted-foreground/90">
+            {selectedFiles.map((file) => (
+              <li key={file.path} className="truncate">
+                {file.fileName} · {formatFileSize(file.byteLength)}
+              </li>
+            ))}
+          </ul>
         )}
 
         {batchProgress !== null && (
@@ -316,14 +297,30 @@ function App(): React.JSX.Element {
         {batchResults !== null && (
           <div className="flex flex-col gap-2 text-sm">
             <p className="text-muted-foreground">
-              Batch complete: {succeededCount} succeeded, {failedResults.length} failed
+              Batch complete:{' '}
+              {batchResults.filter((result) => result.ok).length} succeeded,{' '}
+              {batchResults.filter((result) => !result.ok).length} failed
             </p>
-            {failedResults.length > 0 && (
-              <BatchFailureSummary failures={failedResults} fileNameFromPath={fileNameFromPath} />
+            {batchResults.some((result) => !result.ok) && (
+              <BatchFailureSummary
+                failures={
+                  batchResults.filter(
+                    (result): result is Extract<BatchFileResult, { ok: false }> => !result.ok
+                  )
+                }
+                fileNameFromPath={fileNameFromPath}
+              />
             )}
           </div>
         )}
       </div>
+    </main>
+  )
+
+  return (
+    <div className="flex h-full flex-col">
+      <TitleBar />
+      {content}
     </div>
   )
 }

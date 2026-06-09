@@ -2,6 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
+type InputFormat = 'png' | 'jpg'
+type OutputFormat = 'webp' | 'jpg' | 'png'
+
+type FormatOptions = {
+  inputFormats: InputFormat[]
+  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
+  formatLabels: Record<InputFormat | OutputFormat, string>
+}
 
 type ReadFileResult =
   | { ok: true; byteLength: number }
@@ -17,6 +25,8 @@ type ConvertSaveResult =
   | { canceled: true }
 
 const api = {
+  getFormatOptions: (): Promise<FormatOptions> =>
+    ipcRenderer.invoke('conversions:getFormatOptions'),
   selectFile: (conversionId: ConversionId): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectFile', conversionId),
   readFile: (filePath: string, conversionId: ConversionId): Promise<ReadFileResult> =>

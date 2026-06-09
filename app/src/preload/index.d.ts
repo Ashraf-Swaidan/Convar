@@ -1,6 +1,14 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
+type InputFormat = 'png' | 'jpg'
+type OutputFormat = 'webp' | 'jpg' | 'png'
+
+type FormatOptions = {
+  inputFormats: InputFormat[]
+  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
+  formatLabels: Record<InputFormat | OutputFormat, string>
+}
 
 type ReadFileResult =
   | { ok: true; byteLength: number }
@@ -19,6 +27,7 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
+      getFormatOptions: () => Promise<FormatOptions>
       selectFile: (conversionId: ConversionId) => Promise<string | null>
       readFile: (filePath: string, conversionId: ConversionId) => Promise<ReadFileResult>
       getFilePreview: (filePath: string, conversionId: ConversionId) => Promise<PreviewResult>

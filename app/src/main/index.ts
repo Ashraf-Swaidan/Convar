@@ -7,11 +7,25 @@ import { createPreviewDataUrl } from './preview'
 import {
   runConversion,
   conversionMeta,
+  getFormatOptions,
   isConversionId,
   isValidInputFile,
   getOpenDialogFilters,
-  type ConversionId
+  type ConversionId,
+  type ConversionMeta
 } from './convert'
+
+type ResolvedConversion =
+  | { ok: true; conversionId: ConversionId; meta: ConversionMeta }
+  | { ok: false; error: string }
+
+function resolveConversion(conversionId: string): ResolvedConversion {
+  if (!isConversionId(conversionId)) {
+    return { ok: false, error: 'Unknown conversion type.' }
+  }
+
+  return { ok: true, conversionId, meta: conversionMeta[conversionId] }
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -59,12 +73,15 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  ipcMain.handle('conversions:getFormatOptions', () => getFormatOptions())
+
   ipcMain.handle('dialog:selectFile', async (event, conversionId: ConversionId) => {
-    if (!isConversionId(conversionId)) {
+    const resolved = resolveConversion(conversionId)
+    if (!resolved.ok) {
       return null
     }
 
-    const meta = conversionMeta[conversionId]
+    const { meta } = resolved
     const window = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(window!, {
       properties: ['openFile'],
@@ -79,14 +96,15 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('file:read', async (_, filePath: string, conversionId: ConversionId) => {
-    if (!isConversionId(conversionId)) {
-      return { ok: false as const, error: 'Unknown conversion.' }
+    const resolved = resolveConversion(conversionId)
+    if (!resolved.ok) {
+      return { ok: false as const, error: resolved.error }
     }
 
-    const meta = conversionMeta[conversionId]
+    const { meta } = resolved
 
     if (!filePath) {
-      return { ok: false as const, error: 'No file selected.' }
+      return { ok: false as const, error: `No file selected for ${meta.label}.` }
     }
 
     if (!isValidInputFile(filePath, meta.inputType)) {
@@ -97,19 +115,20 @@ app.whenReady().then(() => {
       const buffer = await readFileBuffer(filePath)
       return { ok: true as const, byteLength: buffer.byteLength }
     } catch {
-      return { ok: false as const, error: 'Could not read the file.' }
+      return { ok: false as const, error: `Could not read the file for ${meta.label}.` }
     }
   })
 
   ipcMain.handle('file:getPreview', async (_, filePath: string, conversionId: ConversionId) => {
-    if (!isConversionId(conversionId)) {
-      return { ok: false as const, error: 'Unknown conversion.' }
+    const resolved = resolveConversion(conversionId)
+    if (!resolved.ok) {
+      return { ok: false as const, error: resolved.error }
     }
 
-    const meta = conversionMeta[conversionId]
+    const { meta } = resolved
 
     if (!filePath) {
-      return { ok: false as const, error: 'No file selected.' }
+      return { ok: false as const, error: `No file selected for ${meta.label}.` }
     }
 
     if (!isValidInputFile(filePath, meta.inputType)) {
@@ -124,21 +143,22 @@ app.whenReady().then(() => {
         fileName: basename(filePath)
       }
     } catch {
-      return { ok: false as const, error: 'Could not load preview.' }
+      return { ok: false as const, error: `Could not load preview for ${meta.label}.` }
     }
   })
 
   ipcMain.handle(
     'convert:save',
     async (event, inputPath: string, conversionId: ConversionId) => {
-      if (!isConversionId(conversionId)) {
-        return { ok: false as const, error: 'Unknown conversion.' }
+      const resolved = resolveConversion(conversionId)
+      if (!resolved.ok) {
+        return { ok: false as const, error: resolved.error }
       }
 
-      const meta = conversionMeta[conversionId]
+      const { meta } = resolved
 
       if (!inputPath) {
-        return { ok: false as const, error: 'No file selected.' }
+        return { ok: false as const, error: `No file selected for ${meta.label}.` }
       }
 
       if (!isValidInputFile(inputPath, meta.inputType)) {
@@ -151,12 +171,12 @@ app.whenReady().then(() => {
       try {
         input = await readFileBuffer(inputPath)
       } catch {
-        return { ok: false as const, error: 'Could not read the file.' }
+        return { ok: false as const, error: `Could not read the file for ${meta.label}.` }
       }
 
       let output: Buffer
       try {
-        output = await runConversion(input, conversionId)
+        output = await runConversion(input, resolved.conversionId)
       } catch {
         return { ok: false as const, error: meta.conversionFailedError }
       }
@@ -178,7 +198,7 @@ app.whenReady().then(() => {
       try {
         await writeFileBuffer(result.filePath, output)
       } catch {
-        return { ok: false as const, error: 'Could not save the file.' }
+        return { ok: false as const, error: `Could not save the ${meta.label} output.` }
       }
 
       return {

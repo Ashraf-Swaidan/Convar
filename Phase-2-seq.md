@@ -228,11 +228,12 @@ Checkpoint:
 
 ---
 
-### Step 7 — Cleanup + Error Messages
+### Step 7 — Cleanup + Error Messages ✅
 
 * Remove dead code (old handlers, WebP-only strings, temporary toggles)
 * Ensure error messages mention the **selected** conversion where helpful
 * Confirm TypeScript types updated in `preload/index.d.ts`
+* Format options exposed from main via `conversions:getFormatOptions` (single source of truth)
 
 Checkpoint:
 

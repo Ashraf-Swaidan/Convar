@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -12,17 +12,10 @@ type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
 type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 
-const INPUT_FORMATS: InputFormat[] = ['png', 'jpg']
-
-const OUTPUT_OPTIONS: Record<InputFormat, OutputFormat[]> = {
-  png: ['webp', 'jpg'],
-  jpg: ['png']
-}
-
-const FORMAT_LABELS: Record<InputFormat | OutputFormat, string> = {
-  png: 'PNG',
-  jpg: 'JPG',
-  webp: 'WebP'
+type FormatOptions = {
+  inputFormats: InputFormat[]
+  outputOptionsByInput: Record<InputFormat, OutputFormat[]>
+  formatLabels: Record<InputFormat | OutputFormat, string>
 }
 
 function toConversionId(input: InputFormat, output: OutputFormat): ConversionId {
@@ -36,6 +29,7 @@ function formatFileSize(bytes: number): string {
 }
 
 function App(): React.JSX.Element {
+  const [formatOptions, setFormatOptions] = useState<FormatOptions | null>(null)
   const [inputFormat, setInputFormat] = useState<InputFormat>('png')
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp')
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
@@ -46,7 +40,11 @@ function App(): React.JSX.Element {
   const [convertedSize, setConvertedSize] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const outputOptions = OUTPUT_OPTIONS[inputFormat]
+  useEffect(() => {
+    window.api.getFormatOptions().then(setFormatOptions)
+  }, [])
+
+  const outputOptions = formatOptions?.outputOptionsByInput[inputFormat] ?? []
   const conversionId = toConversionId(inputFormat, outputFormat)
 
   const clearFileState = (): void => {
@@ -63,8 +61,10 @@ function App(): React.JSX.Element {
   }
 
   const handleInputFormatChange = (value: InputFormat): void => {
+    if (!formatOptions) return
+
     setInputFormat(value)
-    const nextOutputs = OUTPUT_OPTIONS[value]
+    const nextOutputs = formatOptions.outputOptionsByInput[value]
     if (!nextOutputs.includes(outputFormat)) {
       setOutputFormat(nextOutputs[0])
     }
@@ -129,6 +129,14 @@ function App(): React.JSX.Element {
     setConvertedSize(result.outputByteLength)
   }
 
+  if (!formatOptions) {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-svh flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-lg flex-col gap-4">
@@ -143,9 +151,9 @@ function App(): React.JSX.Element {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {INPUT_FORMATS.map((format) => (
+                {formatOptions.inputFormats.map((format) => (
                   <SelectItem key={format} value={format}>
-                    {FORMAT_LABELS[format]}
+                    {formatOptions.formatLabels[format]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -163,7 +171,7 @@ function App(): React.JSX.Element {
               <SelectContent>
                 {outputOptions.map((format) => (
                   <SelectItem key={format} value={format}>
-                    {FORMAT_LABELS[format]}
+                    {formatOptions.formatLabels[format]}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -52,8 +52,8 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     outputExt: 'webp',
     saveFilterName: 'WebP Images',
     saveExtensions: ['webp'],
-    invalidInputError: 'Invalid file type. Please select a PNG file.',
-    conversionFailedError: 'Conversion failed. The file may not be a valid PNG.'
+    invalidInputError: 'Invalid file type for PNG → WebP. Please select a PNG file.',
+    conversionFailedError: 'PNG → WebP conversion failed. The file may not be a valid PNG.'
   },
   'png-jpg': {
     label: 'PNG → JPG',
@@ -61,8 +61,8 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     outputExt: 'jpg',
     saveFilterName: 'JPEG Images',
     saveExtensions: ['jpg', 'jpeg'],
-    invalidInputError: 'Invalid file type. Please select a PNG file.',
-    conversionFailedError: 'Conversion failed. The file may not be a valid PNG.'
+    invalidInputError: 'Invalid file type for PNG → JPG. Please select a PNG file.',
+    conversionFailedError: 'PNG → JPG conversion failed. The file may not be a valid PNG.'
   },
   'jpg-png': {
     label: 'JPG → PNG',
@@ -70,14 +70,36 @@ export const conversionMeta: Record<ConversionId, ConversionMeta> = {
     outputExt: 'png',
     saveFilterName: 'PNG Images',
     saveExtensions: ['png'],
-    invalidInputError: 'Invalid file type. Please select a JPG file.',
-    conversionFailedError: 'Conversion failed. The file may not be a valid JPG.'
+    invalidInputError: 'Invalid file type for JPG → PNG. Please select a JPG file.',
+    conversionFailedError: 'JPG → PNG conversion failed. The file may not be a valid JPG.'
   }
 }
 
 export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
   png: ['webp', 'jpg'],
   jpg: ['png']
+}
+
+export const formatLabels: Record<InputFileType | OutputFormat, string> = {
+  png: 'PNG',
+  jpg: 'JPG',
+  webp: 'WebP'
+}
+
+export const inputFormats: InputFileType[] = ['png', 'jpg']
+
+export type FormatOptions = {
+  inputFormats: InputFileType[]
+  outputOptionsByInput: Record<InputFileType, OutputFormat[]>
+  formatLabels: Record<InputFileType | OutputFormat, string>
+}
+
+export function getFormatOptions(): FormatOptions {
+  return {
+    inputFormats,
+    outputOptionsByInput,
+    formatLabels
+  }
 }
 
 export function isConversionId(value: string): value is ConversionId {

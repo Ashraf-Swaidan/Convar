@@ -3,7 +3,7 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
-import { convertPngToWebp, convertPngToJpg, convertJpgToPng } from './convert'
+import { runConversion, conversionMeta, isConversionId, type ConversionId } from './convert'
 
 type InputFileType = 'png' | 'jpg'
 
@@ -102,170 +102,70 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('convert:saveWebp', async (event, inputPath: string) => {
-    if (!inputPath) {
-      return { ok: false as const, error: 'No file selected.' }
-    }
+  ipcMain.handle(
+    'convert:save',
+    async (event, inputPath: string, conversionId: ConversionId) => {
+      if (!isConversionId(conversionId)) {
+        return { ok: false as const, error: 'Unknown conversion.' }
+      }
 
-    if (!isPngFile(inputPath)) {
-      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
-    }
+      const meta = conversionMeta[conversionId]
 
-    const window = BrowserWindow.fromWebContents(event.sender)
+      if (!inputPath) {
+        return { ok: false as const, error: 'No file selected.' }
+      }
 
-    let input: Buffer
-    try {
-      input = await readFileBuffer(inputPath)
-    } catch {
-      return { ok: false as const, error: 'Could not read the file.' }
-    }
+      if (meta.inputType === 'png' && !isPngFile(inputPath)) {
+        return { ok: false as const, error: meta.invalidInputError }
+      }
 
-    let output: Buffer
-    try {
-      output = await convertPngToWebp(input)
-    } catch {
+      if (meta.inputType === 'jpg' && !isJpgFile(inputPath)) {
+        return { ok: false as const, error: meta.invalidInputError }
+      }
+
+      const window = BrowserWindow.fromWebContents(event.sender)
+
+      let input: Buffer
+      try {
+        input = await readFileBuffer(inputPath)
+      } catch {
+        return { ok: false as const, error: 'Could not read the file.' }
+      }
+
+      let output: Buffer
+      try {
+        output = await runConversion(input, conversionId)
+      } catch {
+        return { ok: false as const, error: meta.conversionFailedError }
+      }
+
+      const defaultPath = join(
+        dirname(inputPath),
+        `${basename(inputPath, extname(inputPath))}.${meta.outputExt}`
+      )
+
+      const result = await dialog.showSaveDialog(window!, {
+        defaultPath,
+        filters: [{ name: meta.saveFilterName, extensions: meta.saveExtensions }]
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { canceled: true as const }
+      }
+
+      try {
+        await writeFileBuffer(result.filePath, output)
+      } catch {
+        return { ok: false as const, error: 'Could not save the file.' }
+      }
+
       return {
-        ok: false as const,
-        error: 'Conversion failed. The file may not be a valid PNG.'
+        ok: true as const,
+        savedPath: result.filePath,
+        outputByteLength: output.byteLength
       }
     }
-
-    const defaultPath = join(
-      dirname(inputPath),
-      `${basename(inputPath, extname(inputPath))}.webp`
-    )
-
-    const result = await dialog.showSaveDialog(window!, {
-      defaultPath,
-      filters: [{ name: 'WebP Images', extensions: ['webp'] }]
-    })
-
-    if (result.canceled || !result.filePath) {
-      return { canceled: true as const }
-    }
-
-    try {
-      await writeFileBuffer(result.filePath, output)
-    } catch {
-      return { ok: false as const, error: 'Could not save the file.' }
-    }
-
-    return {
-      ok: true as const,
-      savedPath: result.filePath,
-      outputByteLength: output.byteLength
-    }
-  })
-
-  ipcMain.handle('convert:saveJpg', async (event, inputPath: string) => {
-    if (!inputPath) {
-      return { ok: false as const, error: 'No file selected.' }
-    }
-
-    if (!isPngFile(inputPath)) {
-      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
-    }
-
-    const window = BrowserWindow.fromWebContents(event.sender)
-
-    let input: Buffer
-    try {
-      input = await readFileBuffer(inputPath)
-    } catch {
-      return { ok: false as const, error: 'Could not read the file.' }
-    }
-
-    let output: Buffer
-    try {
-      output = await convertPngToJpg(input)
-    } catch {
-      return {
-        ok: false as const,
-        error: 'Conversion failed. The file may not be a valid PNG.'
-      }
-    }
-
-    const defaultPath = join(
-      dirname(inputPath),
-      `${basename(inputPath, extname(inputPath))}.jpg`
-    )
-
-    const result = await dialog.showSaveDialog(window!, {
-      defaultPath,
-      filters: [{ name: 'JPEG Images', extensions: ['jpg', 'jpeg'] }]
-    })
-
-    if (result.canceled || !result.filePath) {
-      return { canceled: true as const }
-    }
-
-    try {
-      await writeFileBuffer(result.filePath, output)
-    } catch {
-      return { ok: false as const, error: 'Could not save the file.' }
-    }
-
-    return {
-      ok: true as const,
-      savedPath: result.filePath,
-      outputByteLength: output.byteLength
-    }
-  })
-
-  ipcMain.handle('convert:savePng', async (event, inputPath: string) => {
-    if (!inputPath) {
-      return { ok: false as const, error: 'No file selected.' }
-    }
-
-    if (!isJpgFile(inputPath)) {
-      return { ok: false as const, error: 'Invalid file type. Please select a JPG file.' }
-    }
-
-    const window = BrowserWindow.fromWebContents(event.sender)
-
-    let input: Buffer
-    try {
-      input = await readFileBuffer(inputPath)
-    } catch {
-      return { ok: false as const, error: 'Could not read the file.' }
-    }
-
-    let output: Buffer
-    try {
-      output = await convertJpgToPng(input)
-    } catch {
-      return {
-        ok: false as const,
-        error: 'Conversion failed. The file may not be a valid JPG.'
-      }
-    }
-
-    const defaultPath = join(
-      dirname(inputPath),
-      `${basename(inputPath, extname(inputPath))}.png`
-    )
-
-    const result = await dialog.showSaveDialog(window!, {
-      defaultPath,
-      filters: [{ name: 'PNG Images', extensions: ['png'] }]
-    })
-
-    if (result.canceled || !result.filePath) {
-      return { canceled: true as const }
-    }
-
-    try {
-      await writeFileBuffer(result.filePath, output)
-    } catch {
-      return { ok: false as const, error: 'Could not save the file.' }
-    }
-
-    return {
-      ok: true as const,
-      savedPath: result.filePath,
-      outputByteLength: output.byteLength
-    }
-  })
+  )
 
   createWindow()
 

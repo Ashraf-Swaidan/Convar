@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: In progress (Steps 1–2 complete)**
+**Status: In progress (Steps 1–4 complete)**
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -144,7 +144,7 @@ Checkpoint:
 
 ---
 
-### Step 3 — Simple Converter Map (First Real Structure)
+### Step 3 — Simple Converter Map (First Real Structure) ✅
 
 Only now — because we felt the pain — introduce a minimal registry in `convert.ts`:
 
@@ -174,7 +174,7 @@ Checkpoint:
 
 ---
 
-### Step 4 — Generalize IPC Handler
+### Step 4 — Generalize IPC Handler ✅
 
 Replace separate handlers (`convert:saveWebp`, `convert:saveJpg`, …) with one:
 

@@ -4,6 +4,8 @@ import { Textarea } from '@/components/ui/textarea'
 
 type InputFileType = 'png' | 'jpg'
 
+type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -40,13 +42,7 @@ function App(): React.JSX.Element {
     setFileSize(readResult.byteLength)
   }
 
-  const runConvert = async (
-    convert: (path: string) => Promise<
-      | { ok: true; savedPath: string; outputByteLength: number }
-      | { ok: false; error: string }
-      | { canceled: true }
-    >
-  ): Promise<void> => {
+  const handleConvert = async (conversionId: ConversionId): Promise<void> => {
     setError(null)
     setSavedPath(null)
     setConvertedSize(null)
@@ -56,7 +52,7 @@ function App(): React.JSX.Element {
       return
     }
 
-    const result = await convert(selectedFilePath)
+    const result = await window.api.convertAndSave(selectedFilePath, conversionId)
 
     if ('canceled' in result) return
 
@@ -104,21 +100,21 @@ function App(): React.JSX.Element {
           <Button
             type="button"
             disabled={inputType !== 'png' || !selectedFilePath}
-            onClick={() => runConvert(window.api.convertAndSaveWebp)}
+            onClick={() => handleConvert('png-webp')}
           >
             Convert to WebP
           </Button>
           <Button
             type="button"
             disabled={inputType !== 'png' || !selectedFilePath}
-            onClick={() => runConvert(window.api.convertAndSaveJpg)}
+            onClick={() => handleConvert('png-jpg')}
           >
             Convert to JPG
           </Button>
           <Button
             type="button"
             disabled={inputType !== 'jpg' || !selectedFilePath}
-            onClick={() => runConvert(window.api.convertAndSavePng)}
+            onClick={() => handleConvert('jpg-png')}
           >
             Convert to PNG
           </Button>

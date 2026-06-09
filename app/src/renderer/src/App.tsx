@@ -5,9 +5,11 @@ import { Textarea } from '@/components/ui/textarea'
 function App(): React.JSX.Element {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
 
-  const handleSelectFile = (): void => {
-    // Step 3: replace with Electron file dialog via IPC
-    setSelectedFilePath('C:\\Users\\example\\sample.png')
+  const handleSelectFile = async (): Promise<void> => {
+    const filePath = await window.api.selectFile()
+    if (filePath) {
+      setSelectedFilePath(filePath)
+    }
   }
 
   return (

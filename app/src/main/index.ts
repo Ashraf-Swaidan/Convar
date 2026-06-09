@@ -3,7 +3,7 @@ import { join, basename, extname, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { readFileBuffer, writeFileBuffer } from './file'
-import { convertPngToWebp } from './convert'
+import { convertPngToWebp, convertPngToJpg } from './convert'
 
 function isPngFile(filePath: string): boolean {
   return extname(filePath).toLowerCase() === '.png'
@@ -122,6 +122,61 @@ app.whenReady().then(() => {
     const result = await dialog.showSaveDialog(window!, {
       defaultPath,
       filters: [{ name: 'WebP Images', extensions: ['webp'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    try {
+      await writeFileBuffer(result.filePath, output)
+    } catch {
+      return { ok: false as const, error: 'Could not save the file.' }
+    }
+
+    return {
+      ok: true as const,
+      savedPath: result.filePath,
+      outputByteLength: output.byteLength
+    }
+  })
+
+  ipcMain.handle('convert:saveJpg', async (event, inputPath: string) => {
+    if (!inputPath) {
+      return { ok: false as const, error: 'No file selected.' }
+    }
+
+    if (!isPngFile(inputPath)) {
+      return { ok: false as const, error: 'Invalid file type. Please select a PNG file.' }
+    }
+
+    const window = BrowserWindow.fromWebContents(event.sender)
+
+    let input: Buffer
+    try {
+      input = await readFileBuffer(inputPath)
+    } catch {
+      return { ok: false as const, error: 'Could not read the file.' }
+    }
+
+    let output: Buffer
+    try {
+      output = await convertPngToJpg(input)
+    } catch {
+      return {
+        ok: false as const,
+        error: 'Conversion failed. The file may not be a valid PNG.'
+      }
+    }
+
+    const defaultPath = join(
+      dirname(inputPath),
+      `${basename(inputPath, extname(inputPath))}.jpg`
+    )
+
+    const result = await dialog.showSaveDialog(window!, {
+      defaultPath,
+      filters: [{ name: 'JPEG Images', extensions: ['jpg', 'jpeg'] }]
     })
 
     if (result.canceled || !result.filePath) {

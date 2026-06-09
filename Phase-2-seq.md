@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: Not started**
+**Status: In progress (Step 1 complete)**
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -110,7 +110,7 @@ Build in this order on purpose: **feel duplication first, then refactor** — ma
 
 ---
 
-### Step 1 — Add PNG → JPG (Duplicate on Purpose)
+### Step 1 — Add PNG → JPG (Duplicate on Purpose) ✅
 
 Before abstracting anything, add a second conversion the “dumb” way:
 

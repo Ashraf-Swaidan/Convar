@@ -35,7 +35,7 @@ function App(): React.JSX.Element {
     setFileSize(readResult.byteLength)
   }
 
-  const handleConvert = async (): Promise<void> => {
+  const handleConvertToWebp = async (): Promise<void> => {
     setError(null)
     setSavedPath(null)
     setConvertedSize(null)
@@ -58,11 +58,34 @@ function App(): React.JSX.Element {
     setConvertedSize(result.outputByteLength)
   }
 
+  const handleConvertToJpg = async (): Promise<void> => {
+    setError(null)
+    setSavedPath(null)
+    setConvertedSize(null)
+
+    if (!selectedFilePath) {
+      setError('No file selected.')
+      return
+    }
+
+    const result = await window.api.convertAndSaveJpg(selectedFilePath)
+
+    if ('canceled' in result) return
+
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+
+    setSavedPath(result.savedPath)
+    setConvertedSize(result.outputByteLength)
+  }
+
   return (
     <div className="flex min-h-svh flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-lg flex-col gap-4">
         <h1 className="text-xl font-semibold tracking-tight">Convar</h1>
-        <p className="text-sm text-muted-foreground">Convert PNG to WebP locally.</p>
+        <p className="text-sm text-muted-foreground">Convert PNG to WebP or JPG locally.</p>
 
         <Button type="button" onClick={handleSelectFile}>
           Select File
@@ -80,9 +103,14 @@ function App(): React.JSX.Element {
           <p className="text-sm text-muted-foreground">File size: {formatFileSize(fileSize)}</p>
         )}
 
-        <Button type="button" disabled={!selectedFilePath} onClick={handleConvert}>
-          Convert
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" disabled={!selectedFilePath} onClick={handleConvertToWebp}>
+            Convert to WebP
+          </Button>
+          <Button type="button" disabled={!selectedFilePath} onClick={handleConvertToJpg}>
+            Convert to JPG
+          </Button>
+        </div>
 
         {error !== null && <p className="text-sm text-destructive">{error}</p>}
 

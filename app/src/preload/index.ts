@@ -15,7 +15,9 @@ const api = {
   readFile: (filePath: string): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', filePath),
   convertAndSaveWebp: (filePath: string): Promise<ConvertSaveResult> =>
-    ipcRenderer.invoke('convert:saveWebp', filePath)
+    ipcRenderer.invoke('convert:saveWebp', filePath),
+  convertAndSaveJpg: (filePath: string): Promise<ConvertSaveResult> =>
+    ipcRenderer.invoke('convert:saveJpg', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

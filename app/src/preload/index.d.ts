@@ -16,6 +16,7 @@ declare global {
       selectFile: () => Promise<string | null>
       readFile: (filePath: string) => Promise<ReadFileResult>
       convertAndSaveWebp: (filePath: string) => Promise<ConvertSaveResult>
+      convertAndSaveJpg: (filePath: string) => Promise<ConvertSaveResult>
     }
   }
 }

@@ -5,32 +5,41 @@ type ConversionId = 'png-webp' | 'png-jpg' | 'jpg-png'
 type InputFormat = 'png' | 'jpg'
 type OutputFormat = 'webp' | 'jpg' | 'png'
 
+type AppErrorCode =
+  | 'unknown_conversion'
+  | 'no_file'
+  | 'no_files'
+  | 'no_output_folder'
+  | 'invalid_input'
+  | 'read_failed'
+  | 'conversion_failed'
+  | 'save_failed'
+  | 'preview_failed'
+
+type FailureResult = { ok: false; error: string; code: AppErrorCode }
+
 type FormatOptions = {
   inputFormats: InputFormat[]
   outputOptionsByInput: Record<InputFormat, OutputFormat[]>
   formatLabels: Record<InputFormat | OutputFormat, string>
 }
 
-type ReadFileResult =
-  | { ok: true; byteLength: number }
-  | { ok: false; error: string }
+type ReadFileResult = { ok: true; byteLength: number } | FailureResult
 
 type PreviewResult =
   | { ok: true; dataUrl: string; fileName: string }
-  | { ok: false; error: string }
+  | FailureResult
 
 type ConvertSaveResult =
   | { ok: true; savedPath: string; outputByteLength: number }
-  | { ok: false; error: string }
+  | FailureResult
   | { canceled: true }
 
 type BatchFileResult =
   | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
-  | { inputPath: string; ok: false; error: string }
+  | { inputPath: string; ok: false; error: string; code: AppErrorCode }
 
-type BatchSaveResult =
-  | { ok: true; results: BatchFileResult[] }
-  | { ok: false; error: string }
+type BatchSaveResult = { ok: true; results: BatchFileResult[] } | FailureResult
 
 type BatchProgress = {
   current: number
@@ -70,9 +79,6 @@ const api = {
   }
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

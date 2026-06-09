@@ -27,7 +27,7 @@ type SelectedFile = {
 
 type BatchFileResult =
   | { inputPath: string; ok: true; savedPath: string; outputByteLength: number }
-  | { inputPath: string; ok: false; error: string }
+  | { inputPath: string; ok: false; error: string; code: string }
 
 type BatchProgress = {
   current: number

@@ -1,6 +1,6 @@
 # Phase 3 — Batch Processing
 
-**Status: In progress (Steps 1–6 implemented)** — restart dev server; run manual test matrix in Step 7
+**Status: Complete (Steps 1–7)**
 
 **Prerequisite:** Phase 2 complete (`Phase-2-seq.md`)
 
@@ -190,7 +190,7 @@ Checkpoint:
 
 ---
 
-### Step 7 — Phase 3 Completion Pass
+### Step 7 — Phase 3 Completion Pass ✅
 
 Manual test matrix:
 

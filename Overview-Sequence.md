@@ -77,7 +77,11 @@ A working end-to-end file transformation pipeline.
 
 Detailed sequence: `Phase-2-seq.md`
 
-**Phase 3:** `Phase-3-seq.md` — batch processing (in progress)
+**Phase 3:** `Phase-3-seq.md` — batch processing ✅
+
+**Phase 4:** `Phase-4-seq.md` — error handling ✅
+
+**Phase UX (next):** `Phase-UX-seq.md` — polish & experience
 
 Problem: one conversion is not enough.
 

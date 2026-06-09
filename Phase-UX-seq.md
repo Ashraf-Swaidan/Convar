@@ -74,7 +74,8 @@ Phases 1–3 shipped features in surprisingly few lines because the stack (Elect
 
 * Drop files onto the window to add to selection
 * Drag-over highlight + hint copy
-* Skips invalid formats with a toast when adding via drop
+* Append when files already loaded; first drop sets input format
+* Uniform format enforced (PNG or JPG, must match existing selection)
 
 ### Step 4 — Visual pass ✅
 

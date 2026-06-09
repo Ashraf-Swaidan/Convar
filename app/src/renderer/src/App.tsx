@@ -20,7 +20,7 @@ import {
   countStatuses,
   type FileConversionStatus
 } from '@/lib/conversionStatus'
-import { resolveDroppedPaths } from '@/lib/detectInputFormat'
+import { resolvePathsToAdd } from '@/lib/detectInputFormat'
 import { inputFormatHints, outputFormatHints } from '@/lib/formatHints'
 import type { ConversionId, InputFormat, OutputFormat } from '@/lib/formatTypes'
 import {
@@ -166,17 +166,53 @@ function App(): React.JSX.Element {
     return next
   }
 
-  const loadSelectedFiles = async (filePaths: string[], id: ConversionId): Promise<boolean> => {
-    if (filePaths.length === 0) return true
+  const notifySkippedFiles = (skippedUnsupported: number, skippedInvalid: number): void => {
+    if (skippedUnsupported > 0) {
+      toast.warning(
+        skippedUnsupported === 1
+          ? 'Skipped 1 unsupported file'
+          : `Skipped ${skippedUnsupported} unsupported files`
+      )
+    }
+    if (skippedInvalid > 0) {
+      toast.warning(
+        skippedInvalid === 1
+          ? 'Skipped 1 file — wrong format'
+          : `Skipped ${skippedInvalid} files — wrong format`
+      )
+    }
+  }
 
-    const files: SelectedFile[] = []
+  const loadSelectedFiles = async (
+    filePaths: string[],
+    id: ConversionId,
+    mode: 'replace' | 'append' = 'replace'
+  ): Promise<{ ok: true; skippedInvalid: number } | { ok: false }> => {
+    const newPaths = filePaths.filter(
+      (path) => mode === 'replace' || !selectedFiles.some((file) => file.path === path)
+    )
 
-    for (const filePath of filePaths) {
+    if (newPaths.length === 0) {
+      if (mode === 'append' && filePaths.length > 0) {
+        toast.message('Files already in list')
+      }
+      return { ok: true, skippedInvalid: 0 }
+    }
+
+    const files: SelectedFile[] = mode === 'append' ? [...selectedFiles] : []
+    let skippedInvalid = 0
+
+    for (const filePath of newPaths) {
       const readResult = await window.api.readFile(filePath, id)
       if (!readResult.ok) {
+        if (mode === 'append') {
+          skippedInvalid += 1
+          continue
+        }
+
         clearFileState()
         setError({ code: readResult.code, message: readResult.error })
-        return false
+        return { ok: false }
       }
 
       files.push({
@@ -186,17 +222,51 @@ function App(): React.JSX.Element {
       })
     }
 
+    if (files.length === 0) {
+      setError(appError('invalid_input', 'No valid files for the selected input format.'))
+      return { ok: false }
+    }
+
     setSelectedFiles(await loadPreviews(files, id))
+    return { ok: true, skippedInvalid }
+  }
+
+  const applyInputFormat = (nextInput: InputFormat): ConversionId => {
+    if (!formatOptions) return conversionId
+
+    const nextOutputs = formatOptions.outputOptionsByInput[nextInput]
+    const nextOutput = nextOutputs.includes(outputFormat) ? outputFormat : nextOutputs[0]
+    setInputFormat(nextInput)
+    setOutputFormat(nextOutput)
+    return toConversionId(nextInput, nextOutput)
+  }
+
+  const addFiles = async (filePaths: string[]): Promise<boolean> => {
+    if (!formatOptions) return false
+
+    const isAppend = selectedFiles.length > 0
+    const resolved = resolvePathsToAdd(filePaths, isAppend ? inputFormat : undefined)
+    if (!resolved.ok) {
+      toast.error(resolved.message)
+      return false
+    }
+
+    clearResultState()
+
+    const id = isAppend ? conversionId : applyInputFormat(resolved.inputFormat)
+    const result = await loadSelectedFiles(resolved.paths, id, isAppend ? 'append' : 'replace')
+
+    if (!result.ok) return false
+
+    notifySkippedFiles(resolved.skippedUnsupported, result.skippedInvalid)
     return true
   }
 
   const handleSelectFiles = async (): Promise<void> => {
-    clearResultState()
-
     const filePaths = await window.api.selectFiles(conversionId)
     if (!filePaths || filePaths.length === 0) return
 
-    await loadSelectedFiles(filePaths, conversionId)
+    await addFiles(filePaths)
   }
 
   const handleDragEnter = (event: React.DragEvent): void => {
@@ -234,22 +304,7 @@ function App(): React.JSX.Element {
 
     if (filePaths.length === 0) return
 
-    const resolved = resolveDroppedPaths(filePaths)
-    if (!resolved.ok) {
-      toast.error(resolved.message)
-      return
-    }
-
-    const nextInput = resolved.inputFormat
-    const nextOutputs = formatOptions.outputOptionsByInput[nextInput]
-    const nextOutput = nextOutputs.includes(outputFormat) ? outputFormat : nextOutputs[0]
-    const nextConversionId = toConversionId(nextInput, nextOutput)
-
-    clearFileState()
-    clearResultState()
-    setInputFormat(nextInput)
-    setOutputFormat(nextOutput)
-    await loadSelectedFiles(resolved.paths, nextConversionId)
+    await addFiles(filePaths)
   }
 
   const notifyBatchComplete = (results: BatchFileResult[]): void => {

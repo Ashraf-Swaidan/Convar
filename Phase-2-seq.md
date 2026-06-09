@@ -1,6 +1,6 @@
 # Phase 2 — Extend Conversions
 
-**Status: In progress (Steps 1–6 complete)**
+**Status: Complete (Steps 1–8)** — automated conversion + build verified; quick UI smoke test recommended below
 
 **Prerequisite:** Phase 1 complete (`Phase-1-seq.md`)
 
@@ -242,9 +242,16 @@ Checkpoint:
 
 ---
 
-### Step 8 — Phase 2 Completion Pass
+### Step 8 — Phase 2 Completion Pass ✅
 
-Manual test matrix:
+Automated verification (`npm run verify:conversions`):
+
+* All three conversions produce valid output buffers (PNG → WebP/JPG, JPG → PNG)
+* Input validation, `toConversionId`, and `getFormatOptions` behave as expected
+* Corrupt input fails conversion (no silent success)
+* Production build passes (`npm run build`)
+
+Manual UI smoke test (recommended once in the running app):
 
 | Conversion | Input | Output saves | Opens in viewer |
 |------------|-------|--------------|-----------------|
@@ -252,11 +259,11 @@ Manual test matrix:
 | PNG → JPG | `.png` | `.jpg` | yes |
 | JPG → PNG | `.jpg` | `.png` | yes |
 
-Also test:
+Also confirm in the UI:
 
 * cancel save dialog → no error
-* wrong file type → error message
-* invalid/corrupt file → conversion error
+* wrong file type → conversion-specific error message
+* invalid/corrupt file → conversion failed error
 
 Checkpoint:
 

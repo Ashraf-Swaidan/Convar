@@ -75,6 +75,8 @@ A working end-to-end file transformation pipeline.
 
 ### Phase 2 — Extend Conversions
 
+Detailed sequence: `Phase-2-seq.md`
+
 Problem: one conversion is not enough.
 
 Add:

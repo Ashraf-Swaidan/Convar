@@ -20,7 +20,7 @@ function assert(condition: boolean, message: string): void {
 
 async function expectFormat(
   buffer: Buffer,
-  format: 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'heif' | 'tiff'
+  format: 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'heif' | 'tiff' | 'bmp'
 ): Promise<void> {
   const meta = await sharp(buffer).metadata()
   const actual = meta.format ?? 'unknown'
@@ -37,7 +37,7 @@ async function expectFormat(
 
 function sharpFormatFor(
   output: OutputFormat
-): 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'tiff' {
+): 'png' | 'jpeg' | 'webp' | 'avif' | 'gif' | 'tiff' | 'bmp' {
   return output === 'jpg' ? 'jpeg' : output
 }
 
@@ -62,8 +62,14 @@ async function buildInputBuffers(): Promise<Record<InputFileType, Buffer>> {
   }
 
   const tiff = await sharp(png).tiff().toBuffer()
+  const { encode } = await import('bmp-js')
+  const bmp = encode({
+    width: 16,
+    height: 16,
+    data: Buffer.alloc(16 * 16 * 4, 200)
+  }).data
 
-  return { png, jpg, webp, gif, avif, heic, tiff }
+  return { png, jpg, webp, gif, avif, heic, tiff, bmp }
 }
 
 async function main(): Promise<void> {
@@ -96,6 +102,14 @@ async function main(): Promise<void> {
     const output = await runConversion(input, id)
     const meta = conversionMeta[id]
     assert(output.byteLength > 0, `${id} produced empty output`)
+    if (meta.outputExt === 'bmp') {
+      assert(output.toString('utf8', 0, 2) === 'BM', `${id} should produce a BMP file`)
+      continue
+    }
+    if (meta.outputExt === 'ico') {
+      assert(output.readUInt16LE(0) === 0 && output.readUInt16LE(2) === 1, `${id} should produce an ICO file`)
+      continue
+    }
     await expectFormat(output, sharpFormatFor(meta.outputExt as OutputFormat))
   }
 
@@ -110,12 +124,16 @@ async function main(): Promise<void> {
   assert(isValidInputFile('photo.tif', 'tiff'), 'TIF path should validate')
   assert(isValidInputFile('photo.tiff', 'tiff'), 'TIFF path should validate')
   assert(isValidInputFile('photo.TIFF', 'tiff'), 'TIFF path should validate case-insensitively')
+  assert(isValidInputFile('photo.bmp', 'bmp'), 'BMP path should validate')
   assert(toConversionId('png', 'webp') === 'png-webp', 'toConversionId png-webp')
   assert(toConversionId('avif', 'png') === 'avif-png', 'toConversionId avif-png')
   assert(toConversionId('png', 'png') === null, 'png-png should be invalid')
 
   const options = getFormatOptions()
-  assert(options.outputFormats.join(',') === 'webp,jpg,png,tiff,avif,gif', 'outputFormats')
+  assert(
+    options.outputFormats.join(',') === 'webp,jpg,png,ico,pdf,tiff,bmp,avif,gif',
+    'outputFormats'
+  )
 
   let corruptFailed = false
   try {

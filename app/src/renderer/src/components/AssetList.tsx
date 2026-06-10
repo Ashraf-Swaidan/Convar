@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { getErrorHint, type AppErrorCode } from '@/lib/errorHints'
 import { HEIC_PREVIEW_PLACEHOLDER, isHeicPath } from '@/lib/heicPreview'
+import { PDF_PREVIEW_PLACEHOLDER, isPdfPath } from '@/lib/pdfPreview'
 import { countStatuses, type FileConversionStatus } from '@/lib/conversionStatus'
 type AssetFile = {
   path: string
@@ -63,8 +64,11 @@ export function AssetList({
         if (cancelled) return
         if (file.previewUrl || loadingRef.current.has(file.path)) continue
 
-        if (isHeicPath(file.path)) {
-          setPreviewByPath((prev) => ({ ...prev, [file.path]: HEIC_PREVIEW_PLACEHOLDER }))
+        if (isHeicPath(file.path) || isPdfPath(file.path)) {
+          const placeholder = isHeicPath(file.path)
+            ? HEIC_PREVIEW_PLACEHOLDER
+            : PDF_PREVIEW_PLACEHOLDER
+          setPreviewByPath((prev) => ({ ...prev, [file.path]: placeholder }))
           loadingRef.current.add(file.path)
           continue
         }

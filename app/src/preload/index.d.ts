@@ -1,7 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff'
-type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
+type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff' | 'bmp'
+type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff' | 'bmp' | 'ico' | 'pdf'
 type ConversionId = `${InputFormat}-${OutputFormat}`
 type OutputLayout = 'flat' | 'mirror'
 

@@ -11,7 +11,16 @@ export default defineConfig({
           index: resolve('src/main/index.ts'),
           'heic-child': resolve('src/main/heic-child.ts')
         },
-        external: ['heic-convert', 'heic-decode', 'libheif-js']
+        external: [
+          'heic-convert',
+          'heic-decode',
+          'libheif-js',
+          'bmp-js',
+          'to-ico',
+          'pdf-lib',
+          'pdfjs-dist',
+          '@napi-rs/canvas'
+        ]
       }
     }
   },

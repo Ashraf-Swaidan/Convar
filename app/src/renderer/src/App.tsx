@@ -29,6 +29,7 @@ import {
 } from '@/lib/conversionHistory'
 import { outputFormatHints, supportedInputSummary } from '@/lib/formatHints'
 import { HEIC_PREVIEW_PLACEHOLDER, isHeicPath } from '@/lib/heicPreview'
+import { PDF_PREVIEW_PLACEHOLDER, isPdfPath } from '@/lib/pdfPreview'
 import { historyMetaForFile } from '@/lib/historyMeta'
 import type { OutputFormat, OutputLayout } from '@/lib/formatTypes'
 import {
@@ -194,6 +195,11 @@ function App(): React.JSX.Element {
 
       if (isHeicPath(file.path)) {
         next[index] = { ...next[index], previewUrl: HEIC_PREVIEW_PLACEHOLDER }
+        continue
+      }
+
+      if (isPdfPath(file.path)) {
+        next[index] = { ...next[index], previewUrl: PDF_PREVIEW_PLACEHOLDER }
         continue
       }
 
@@ -739,8 +745,8 @@ function App(): React.JSX.Element {
         <DropOverlay visible={isDragOver} />
         {content}
         <AppFooter version={appVersion} />
+        </div>
       </div>
-    </div>
   )
 }
 

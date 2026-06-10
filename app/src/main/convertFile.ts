@@ -1,5 +1,5 @@
 import { mkdir, stat } from 'fs/promises'
-import { basename, dirname } from 'path'
+import { basename, dirname, join } from 'path'
 import { readFileBuffer, writeFileBuffer, copyFileToPath } from './file'
 import { outputPathForInput, type OutputLayout } from './ingest'
 import {
@@ -12,7 +12,15 @@ import {
   type ConversionId,
   type OutputFormat
 } from './convert'
+import { decodeBmpToPng } from './bmp'
+import { isPdfFile, partitionIngestPaths } from './fileKind'
 import { decodeHeicFileToJpeg } from './heic'
+import {
+  assertPdfOutputCompatible,
+  imagesToPdf,
+  pdfOutputBaseName,
+  pdfToRasterPages
+} from './pdf'
 import { appError, fsErrorMessage, type AppError, type AppErrorCode } from './errors'
 
 export async function readSupportedFile(
@@ -22,18 +30,18 @@ export async function readSupportedFile(
     return { ok: false, error: appError('no_file', 'No file selected.') }
   }
 
-  if (!detectInputType(filePath)) {
+  if (!detectInputType(filePath) && !isPdfFile(filePath)) {
     return {
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
+        'Unsupported file type. Use images (PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, BMP) or PDF.'
       )
     }
   }
 
   try {
-    if (detectInputType(filePath) === 'heic') {
+    if (detectInputType(filePath) === 'heic' || isPdfFile(filePath)) {
       const { size } = await stat(filePath)
       return { ok: true, byteLength: size }
     }
@@ -60,15 +68,25 @@ async function readAndConvert(
   }
 
   try {
-    const buffer =
-      inputType === 'heic' ? await decodeHeicFileToJpeg(inputPath) : await readFileBuffer(inputPath)
+    let buffer: Buffer
+    if (inputType === 'heic') {
+      buffer = await decodeHeicFileToJpeg(inputPath)
+    } else if (inputType === 'bmp') {
+      buffer = await decodeBmpToPng(await readFileBuffer(inputPath))
+    } else {
+      buffer = await readFileBuffer(inputPath)
+    }
     return { ok: true, buffer }
   } catch (err) {
-    const heicHint =
-      inputType === 'heic' ? ' Could not decode this HEIC file.' : `Could not read the file for ${meta.label}.`
+    const readHint =
+      inputType === 'heic'
+        ? 'Could not decode this HEIC file.'
+        : inputType === 'bmp'
+          ? 'Could not decode this BMP file.'
+          : `Could not read the file for ${meta.label}.`
     return {
       ok: false,
-      error: appError('read_failed', fsErrorMessage(err, heicHint))
+      error: appError('read_failed', fsErrorMessage(err, readHint))
     }
   }
 }
@@ -119,7 +137,7 @@ export async function processFileToPath(
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
+        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, or BMP.'
       )
     }
   }
@@ -163,6 +181,40 @@ export async function processFileToPath(
         'save_failed',
         fsErrorMessage(err, `Could not save the ${formatLabels[outputFormat]} output.`)
       )
+    }
+  }
+}
+
+export async function exportPdfToImages(
+  inputPath: string,
+  outputDir: string,
+  outputFormat: OutputFormat
+): Promise<
+  { ok: true; savedPath: string; outputByteLength: number } | { ok: false; error: AppError }
+> {
+  try {
+    const base = pdfOutputBaseName(inputPath)
+    const { paths, totalBytes } = await pdfToRasterPages(inputPath, outputDir, outputFormat, base)
+    return { ok: true, savedPath: paths[0], outputByteLength: totalBytes }
+  } catch (err) {
+    return {
+      ok: false,
+      error: appError('conversion_failed', fsErrorMessage(err, 'Could not export PDF pages.'))
+    }
+  }
+}
+
+export async function exportImagesToPdf(
+  imagePaths: string[],
+  outputPath: string
+): Promise<{ ok: true; outputByteLength: number } | { ok: false; error: AppError }> {
+  try {
+    const { byteLength } = await imagesToPdf(imagePaths, outputPath)
+    return { ok: true, outputByteLength: byteLength }
+  } catch (err) {
+    return {
+      ok: false,
+      error: appError('conversion_failed', fsErrorMessage(err, 'Could not create PDF.'))
     }
   }
 }
@@ -215,6 +267,59 @@ export async function convertBatchToOutputDir(
     | { inputPath: string; ok: false; error: string; code: AppErrorCode }
   >
 > {
+  const { images, pdfs } = partitionIngestPaths(inputPaths)
+
+  try {
+    assertPdfOutputCompatible(images.length, pdfs.length, outputFormat)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Invalid batch.'
+    return inputPaths.map((inputPath) =>
+      batchFailure(inputPath, appError('invalid_input', message))
+    )
+  }
+
+  if (outputFormat === 'pdf') {
+    onProgress({ current: 1, total: 1, fileName: 'document.pdf' })
+    const pdfPath = join(outputDir, 'document.pdf')
+    const created = await exportImagesToPdf(images, pdfPath)
+    if (!created.ok) {
+      return images.map((inputPath) => batchFailure(inputPath, created.error))
+    }
+    return images.map((inputPath) => ({
+      inputPath,
+      ok: true as const,
+      savedPath: pdfPath,
+      outputByteLength: created.outputByteLength,
+      copied: false
+    }))
+  }
+
+  if (pdfs.length > 0) {
+    const results: Array<
+      | { inputPath: string; ok: true; savedPath: string; outputByteLength: number; copied: boolean }
+      | { inputPath: string; ok: false; error: string; code: AppErrorCode }
+    > = []
+
+    for (let i = 0; i < pdfs.length; i++) {
+      const inputPath = pdfs[i]
+      onProgress({ current: i + 1, total: pdfs.length, fileName: basename(inputPath) })
+      const exported = await exportPdfToImages(inputPath, outputDir, outputFormat)
+      if (!exported.ok) {
+        results.push(batchFailure(inputPath, exported.error))
+        continue
+      }
+      results.push({
+        inputPath,
+        ok: true,
+        savedPath: exported.savedPath,
+        outputByteLength: exported.outputByteLength,
+        copied: false
+      })
+    }
+
+    return results
+  }
+
   const results: Array<
     | { inputPath: string; ok: true; savedPath: string; outputByteLength: number; copied: boolean }
     | { inputPath: string; ok: false; error: string; code: AppErrorCode }

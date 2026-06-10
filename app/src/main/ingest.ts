@@ -1,6 +1,7 @@
 import { readdir, stat } from 'fs/promises'
 import { dirname, resolve, relative, sep, join, basename, extname } from 'path'
-import { isSupportedInputFile, outputExtension, type OutputFormat } from './convert'
+import { outputExtension, type OutputFormat } from './convert'
+import { isIngestSupportedFile } from './fileKind'
 
 export type OutputLayout = 'flat' | 'mirror'
 
@@ -13,7 +14,7 @@ export async function collectImagesRecursive(dirPath: string): Promise<string[]>
       const fullPath = join(dir, entry.name)
       if (entry.isDirectory()) {
         await walk(fullPath)
-      } else if (entry.isFile() && isSupportedInputFile(fullPath)) {
+      } else if (entry.isFile() && isIngestSupportedFile(fullPath)) {
         results.push(fullPath)
       }
     }
@@ -66,7 +67,7 @@ export async function expandIngestPaths(
       const nested = await collectImagesRecursive(path)
       if (nested.length === 0) skipped++
       files.push(...nested)
-    } else if (entryStat.isFile() && isSupportedInputFile(path)) {
+    } else if (entryStat.isFile() && isIngestSupportedFile(path)) {
       files.push(path)
     } else {
       skipped++

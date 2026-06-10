@@ -5,13 +5,15 @@ import icon from '../../resources/icon.png?asset'
 import { createPreviewDataUrl } from './preview'
 import {
   convertBatchToOutputDir,
+  exportImagesToPdf,
+  exportPdfToImages,
   processFileToPath,
   readSupportedFile
 } from './convertFile'
+import { isIngestSupportedFile, isPdfFile } from './fileKind'
 import {
   getFormatOptions,
   isOutputFormat,
-  isSupportedInputFile,
   getCombinedOpenDialogFilters,
   getSaveDialogFilters,
   outputExtension,
@@ -189,11 +191,11 @@ app.whenReady().then(() => {
       return toFailure(appError('no_file', 'No file selected.'))
     }
 
-    if (!isSupportedInputFile(filePath)) {
+    if (!isIngestSupportedFile(filePath)) {
       return toFailure(
         appError(
           'invalid_input',
-          'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, or TIFF.'
+          'Unsupported file type. Use images or PDF.'
         )
       )
     }
@@ -223,6 +225,37 @@ app.whenReady().then(() => {
         return toFailure(appError('unknown_conversion', 'Unknown output format.'))
       }
 
+      const window = BrowserWindow.fromWebContents(event.sender)
+
+      if (isPdfFile(inputPath)) {
+        let outputDir = dirname(inputPath)
+
+        if (!options?.saveNextToInput) {
+          const folderResult = await dialog.showOpenDialog(window!, {
+            properties: ['openDirectory', 'createDirectory'],
+            defaultPath: dirname(inputPath)
+          })
+
+          if (folderResult.canceled || folderResult.filePaths.length === 0) {
+            return { canceled: true as const }
+          }
+
+          outputDir = folderResult.filePaths[0]
+        }
+
+        const exportResult = await exportPdfToImages(inputPath, outputDir, outputFormat)
+        if (!exportResult.ok) {
+          return toFailure(exportResult.error)
+        }
+
+        return {
+          ok: true as const,
+          savedPath: exportResult.savedPath,
+          outputByteLength: exportResult.outputByteLength,
+          copied: false
+        }
+      }
+
       const defaultPath = join(
         dirname(inputPath),
         `${basename(inputPath, extname(inputPath))}.${outputExtension(outputFormat)}`
@@ -230,8 +263,34 @@ app.whenReady().then(() => {
 
       let savedPath = defaultPath
 
+      if (outputFormat === 'pdf') {
+        if (!options?.saveNextToInput) {
+          const result = await dialog.showSaveDialog(window!, {
+            defaultPath,
+            filters: getSaveDialogFilters(outputFormat)
+          })
+
+          if (result.canceled || !result.filePath) {
+            return { canceled: true as const }
+          }
+
+          savedPath = result.filePath
+        }
+
+        const pdfResult = await exportImagesToPdf([inputPath], savedPath)
+        if (!pdfResult.ok) {
+          return toFailure(pdfResult.error)
+        }
+
+        return {
+          ok: true as const,
+          savedPath,
+          outputByteLength: pdfResult.outputByteLength,
+          copied: false
+        }
+      }
+
       if (!options?.saveNextToInput) {
-        const window = BrowserWindow.fromWebContents(event.sender)
         const result = await dialog.showSaveDialog(window!, {
           defaultPath,
           filters: getSaveDialogFilters(outputFormat)

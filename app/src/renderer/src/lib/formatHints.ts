@@ -7,7 +7,8 @@ export const inputFormatHints: Record<InputFormat, string> = {
   heic: 'iPhone and Apple device photos',
   gif: 'Animated or simple graphics (first frame when converting out)',
   avif: 'Modern high-efficiency images',
-  tiff: 'Scans, print, and lossless archives (first page if multi-page)'
+  tiff: 'Scans, print, and lossless archives (first page if multi-page)',
+  bmp: 'Legacy Windows bitmap images'
 }
 
 export const outputFormatHints: Record<OutputFormat, string> = {
@@ -16,8 +17,11 @@ export const outputFormatHints: Record<OutputFormat, string> = {
   png: 'Lossless with transparency',
   avif: 'Smallest files, newer browsers',
   gif: 'Simple animations (static when converting in)',
-  tiff: 'Lossless, large files — good for print and archiving'
+  tiff: 'Lossless, large files — good for print and archiving',
+  bmp: 'Uncompressed bitmap — large files, universal on Windows',
+  ico: 'Windows icon with 16, 32, 48, and 256 px sizes',
+  pdf: 'Combine images into one document, or export PDF pages to images'
 }
 
 export const supportedInputSummary =
-  'PNG, JPG, WebP, HEIC, GIF, AVIF, and TIFF accepted · folders supported'
+  'Images, PDF, and folders accepted · images→PDF or PDF→PNG/JPG/WebP'

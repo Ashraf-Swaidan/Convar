@@ -19,6 +19,7 @@ import {
   outputExtension,
   type OutputFormat
 } from './convert'
+import { getCompatibleOutputFormats } from './outputCompatibility'
 import { expandIngestPaths } from './ingest'
 import type { OutputLayout } from './ingest'
 import { appError, toFailure } from './errors'
@@ -75,6 +76,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('conversions:getFormatOptions', () => getFormatOptions())
+
+  ipcMain.handle('conversions:getCompatibleOutputs', (_, filePaths: string[]) =>
+    getCompatibleOutputFormats(filePaths)
+  )
 
   ipcMain.handle('app:getVersion', () => app.getVersion())
 

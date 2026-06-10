@@ -1,8 +1,21 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-type InputFormat = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff' | 'bmp'
+type InputFormat =
+  | 'png'
+  | 'jpg'
+  | 'webp'
+  | 'heic'
+  | 'gif'
+  | 'avif'
+  | 'tiff'
+  | 'bmp'
+  | 'dng'
+  | 'raw'
+  | 'psd'
 type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff' | 'bmp' | 'ico' | 'pdf'
-type ConversionId = `${InputFormat}-${OutputFormat}`
+type ConversionId =
+  | `${InputFormat}-${OutputFormat}`
+  | `pdf-${Exclude<OutputFormat, 'pdf'>}`
 type OutputLayout = 'flat' | 'mirror'
 
 type AppErrorCode =
@@ -22,6 +35,11 @@ type FormatOptions = {
   outputFormats: OutputFormat[]
   formatLabels: Record<InputFormat | OutputFormat, string>
   supportedExtensions: string[]
+}
+
+type CompatibleOutputs = {
+  formats: OutputFormat[]
+  blockedReason: string | null
 }
 
 type IngestResult = {
@@ -68,6 +86,7 @@ declare global {
     electron: ElectronAPI
     api: {
       getFormatOptions: () => Promise<FormatOptions>
+      getCompatibleOutputFormats: (filePaths: string[]) => Promise<CompatibleOutputs>
       getAppVersion: () => Promise<string>
       selectFiles: () => Promise<string[] | null>
       selectInputFolder: () => Promise<string | null>

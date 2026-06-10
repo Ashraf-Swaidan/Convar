@@ -8,9 +8,9 @@ import {
   outputOptionsByInput,
   inputFormats,
   type ConversionId,
-  type InputFileType,
   type OutputFormat
 } from '../src/main/convert'
+import { getCompatibleOutputFormats } from '../src/main/outputCompatibility'
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -69,7 +69,19 @@ async function buildInputBuffers(): Promise<Record<InputFileType, Buffer>> {
     data: Buffer.alloc(16 * 16 * 4, 200)
   }).data
 
-  return { png, jpg, webp, gif, avif, heic, tiff, bmp }
+  return {
+    png,
+    jpg,
+    webp,
+    gif,
+    avif,
+    heic,
+    tiff,
+    bmp,
+    dng: Buffer.alloc(0),
+    raw: Buffer.alloc(0),
+    psd: Buffer.alloc(0)
+  }
 }
 
 async function main(): Promise<void> {
@@ -89,10 +101,10 @@ async function main(): Promise<void> {
     (sum, input) => sum + outputOptionsByInput[input].length,
     0
   )
-  const heicAvailable = buffers.heic.byteLength > 0
-  const minExpected = heicAvailable
-    ? expectedCount
-    : expectedCount - outputOptionsByInput.heic.length
+  const skippedCount = inputFormats
+    .filter((inputType) => buffers[inputType].byteLength === 0)
+    .reduce((sum, inputType) => sum + outputOptionsByInput[inputType].length, 0)
+  const minExpected = expectedCount - skippedCount
   assert(
     cases.length === minExpected,
     `Expected ${minExpected} conversions, got ${cases.length} of ${expectedCount}`
@@ -125,6 +137,9 @@ async function main(): Promise<void> {
   assert(isValidInputFile('photo.tiff', 'tiff'), 'TIFF path should validate')
   assert(isValidInputFile('photo.TIFF', 'tiff'), 'TIFF path should validate case-insensitively')
   assert(isValidInputFile('photo.bmp', 'bmp'), 'BMP path should validate')
+  assert(isValidInputFile('photo.dng', 'dng'), 'DNG path should validate')
+  assert(isValidInputFile('photo.cr2', 'raw'), 'CR2 path should validate as RAW')
+  assert(isValidInputFile('photo.psd', 'psd'), 'PSD path should validate')
   assert(toConversionId('png', 'webp') === 'png-webp', 'toConversionId png-webp')
   assert(toConversionId('avif', 'png') === 'avif-png', 'toConversionId avif-png')
   assert(toConversionId('png', 'png') === null, 'png-png should be invalid')
@@ -142,6 +157,18 @@ async function main(): Promise<void> {
     corruptFailed = true
   }
   assert(corruptFailed, 'Corrupt input should fail conversion')
+
+  const pdfOnly = getCompatibleOutputFormats(['/tmp/doc.pdf'])
+  assert(
+    pdfOnly.formats.join(',') === 'webp,jpg,png,avif',
+    'PDF should only allow raster page exports'
+  )
+  assert(
+    getCompatibleOutputFormats(['/tmp/a.pdf', '/tmp/b.png']).formats.length === 0,
+    'Mixed PDF and images should block all outputs'
+  )
+  const pngOnly = getCompatibleOutputFormats(['/tmp/photo.png'])
+  assert(pngOnly.formats.includes('webp') && !pngOnly.formats.includes('png'), 'PNG input hides PNG output')
 
   console.log(`All ${cases.length} conversion verification checks passed.`)
 }

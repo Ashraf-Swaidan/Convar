@@ -5,10 +5,13 @@ import sharp from 'sharp'
 import { detectInputType, outputExtension, type OutputFormat } from './convert'
 import { decodeBmpToPng } from './bmp'
 import { decodeHeicFileToJpeg } from './heic'
+import { decodePsdToPng } from './psd'
+import { decodeRawFileToJpeg } from './raw'
 import { readFileBuffer } from './file'
 import { isPdfFile } from './fileKind'
+import { PDF_RASTER_OUTPUT_FORMATS } from './outputCompatibility'
 
-const PDF_RASTER_OUTPUTS = new Set<OutputFormat>(['png', 'jpg', 'webp'])
+const PDF_RASTER_OUTPUTS = new Set<OutputFormat>(PDF_RASTER_OUTPUT_FORMATS)
 
 export function isPdfRasterOutput(output: OutputFormat): boolean {
   return PDF_RASTER_OUTPUTS.has(output)
@@ -29,6 +32,16 @@ async function imageBytesForPdfEmbed(
 
   if (inputType === 'bmp') {
     const bytes = await decodeBmpToPng(await readFileBuffer(inputPath))
+    return { bytes, kind: 'png' }
+  }
+
+  if (inputType === 'dng' || inputType === 'raw') {
+    const bytes = await decodeRawFileToJpeg(inputPath)
+    return { bytes, kind: 'jpg' }
+  }
+
+  if (inputType === 'psd') {
+    const bytes = await decodePsdToPng(await readFileBuffer(inputPath))
     return { bytes, kind: 'png' }
   }
 
@@ -73,7 +86,7 @@ export async function pdfToRasterPages(
   nameBase: string
 ): Promise<{ paths: string[]; totalBytes: number }> {
   if (!isPdfRasterOutput(outputFormat)) {
-    throw new Error('PDF pages can only be exported as PNG, JPG, or WebP.')
+    throw new Error('PDF pages can only be exported as PNG, JPG, WebP, or AVIF.')
   }
 
   const { renderPdfToPngPages } = await import('./pdfRender')
@@ -96,6 +109,8 @@ export async function pdfToRasterPages(
       buffer = await sharp(buffer).jpeg().toBuffer()
     } else if (outputFormat === 'webp') {
       buffer = await sharp(buffer).webp().toBuffer()
+    } else if (outputFormat === 'avif') {
+      buffer = await sharp(buffer).avif().toBuffer()
     }
 
     const pagePath = join(outputDir, `${nameBase}-page-${String(i + 1).padStart(3, '0')}.${ext}`)
@@ -125,7 +140,7 @@ export function assertPdfOutputCompatible(
   }
 
   if (pdfCount > 0 && !isPdfRasterOutput(outputFormat)) {
-    throw new Error('PDF pages can only be exported as PNG, JPG, or WebP.')
+    throw new Error('PDF pages can only be exported as PNG, JPG, WebP, or AVIF.')
   }
 
   if (imageCount > 0 && outputFormat === 'pdf') {

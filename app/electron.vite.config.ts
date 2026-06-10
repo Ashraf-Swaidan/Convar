@@ -19,7 +19,9 @@ export default defineConfig({
           'to-ico',
           'pdf-lib',
           'pdfjs-dist',
-          '@napi-rs/canvas'
+          '@napi-rs/canvas',
+          'ag-psd',
+          'raw-decoder'
         ]
       }
     }

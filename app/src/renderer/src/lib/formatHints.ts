@@ -8,7 +8,10 @@ export const inputFormatHints: Record<InputFormat, string> = {
   gif: 'Animated or simple graphics (first frame when converting out)',
   avif: 'Modern high-efficiency images',
   tiff: 'Scans, print, and lossless archives (first page if multi-page)',
-  bmp: 'Legacy Windows bitmap images'
+  bmp: 'Legacy Windows bitmap images',
+  dng: 'Adobe Digital Negative — common RAW container',
+  raw: 'Camera RAW (CR2, NEF, ARW, etc.) — uses embedded JPEG',
+  psd: 'Adobe Photoshop documents (flattened preview)'
 }
 
 export const outputFormatHints: Record<OutputFormat, string> = {
@@ -20,8 +23,8 @@ export const outputFormatHints: Record<OutputFormat, string> = {
   tiff: 'Lossless, large files — good for print and archiving',
   bmp: 'Uncompressed bitmap — large files, universal on Windows',
   ico: 'Windows icon with 16, 32, 48, and 256 px sizes',
-  pdf: 'Combine images into one document, or export PDF pages to images'
+  pdf: 'Combine images into one document, or export PDF pages to PNG/JPG/WebP/AVIF'
 }
 
 export const supportedInputSummary =
-  'Images, PDF, and folders accepted · images→PDF or PDF→PNG/JPG/WebP'
+  'Images, RAW, PSD, PDF, and folders · output list matches your selection'

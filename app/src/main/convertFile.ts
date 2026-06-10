@@ -15,6 +15,8 @@ import {
 import { decodeBmpToPng } from './bmp'
 import { isPdfFile, partitionIngestPaths } from './fileKind'
 import { decodeHeicFileToJpeg } from './heic'
+import { decodePsdToPng } from './psd'
+import { decodeRawFileToJpeg, isRawInputPath } from './raw'
 import {
   assertPdfOutputCompatible,
   imagesToPdf,
@@ -22,6 +24,13 @@ import {
   pdfToRasterPages
 } from './pdf'
 import { appError, fsErrorMessage, type AppError, type AppErrorCode } from './errors'
+
+function readErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message.trim()) {
+    return err.message
+  }
+  return fsErrorMessage(err, fallback)
+}
 
 export async function readSupportedFile(
   filePath: string
@@ -35,13 +44,14 @@ export async function readSupportedFile(
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported file type. Use images (PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, BMP) or PDF.'
+        'Unsupported file type. Use images (PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, BMP, DNG, RAW, PSD) or PDF.'
       )
     }
   }
 
   try {
-    if (detectInputType(filePath) === 'heic' || isPdfFile(filePath)) {
+    const inputType = detectInputType(filePath)
+    if (inputType === 'heic' || isRawInputPath(filePath) || inputType === 'psd' || isPdfFile(filePath)) {
       const { size } = await stat(filePath)
       return { ok: true, byteLength: size }
     }
@@ -73,6 +83,10 @@ async function readAndConvert(
       buffer = await decodeHeicFileToJpeg(inputPath)
     } else if (inputType === 'bmp') {
       buffer = await decodeBmpToPng(await readFileBuffer(inputPath))
+    } else if (inputType === 'dng' || inputType === 'raw') {
+      buffer = await decodeRawFileToJpeg(inputPath)
+    } else if (inputType === 'psd') {
+      buffer = await decodePsdToPng(await readFileBuffer(inputPath))
     } else {
       buffer = await readFileBuffer(inputPath)
     }
@@ -83,10 +97,14 @@ async function readAndConvert(
         ? 'Could not decode this HEIC file.'
         : inputType === 'bmp'
           ? 'Could not decode this BMP file.'
-          : `Could not read the file for ${meta.label}.`
+          : inputType === 'dng' || inputType === 'raw'
+            ? 'Could not decode this RAW file.'
+            : inputType === 'psd'
+              ? 'Could not decode this PSD file.'
+              : `Could not read the file for ${meta.label}.`
     return {
       ok: false,
-      error: appError('read_failed', fsErrorMessage(err, readHint))
+      error: appError('read_failed', readErrorMessage(err, readHint))
     }
   }
 }
@@ -137,7 +155,7 @@ export async function processFileToPath(
       ok: false,
       error: appError(
         'invalid_input',
-        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, or BMP.'
+        'Unsupported image type. Use PNG, JPG, WebP, HEIC, GIF, AVIF, TIFF, BMP, DNG, RAW, or PSD.'
       )
     }
   }

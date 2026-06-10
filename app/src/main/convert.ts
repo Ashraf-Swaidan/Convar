@@ -3,7 +3,18 @@ import sharp from 'sharp'
 import { decodeBmpToPng, encodeBmpFromRaster } from './bmp'
 import { encodeIcoFromRaster } from './ico'
 
-export type InputFileType = 'png' | 'jpg' | 'webp' | 'heic' | 'gif' | 'avif' | 'tiff' | 'bmp'
+export type InputFileType =
+  | 'png'
+  | 'jpg'
+  | 'webp'
+  | 'heic'
+  | 'gif'
+  | 'avif'
+  | 'tiff'
+  | 'bmp'
+  | 'dng'
+  | 'raw'
+  | 'psd'
 
 export type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff' | 'bmp' | 'ico' | 'pdf'
 
@@ -30,6 +41,9 @@ export const formatLabels: Record<InputFileType | OutputFormat, string> = {
   heic: 'HEIC',
   tiff: 'TIFF',
   bmp: 'BMP',
+  dng: 'DNG',
+  raw: 'RAW',
+  psd: 'PSD',
   ico: 'ICO',
   pdf: 'PDF'
 }
@@ -57,7 +71,29 @@ export const inputTypeMeta: Record<
     openExtensions: ['tif', 'tiff'],
     extensions: ['.tif', '.tiff']
   },
-  bmp: { openFilterName: 'BMP Images', openExtensions: ['bmp'], extensions: ['.bmp'] }
+  bmp: { openFilterName: 'BMP Images', openExtensions: ['bmp'], extensions: ['.bmp'] },
+  dng: { openFilterName: 'DNG Images', openExtensions: ['dng'], extensions: ['.dng'] },
+  raw: {
+    openFilterName: 'RAW Images',
+    openExtensions: ['cr2', 'cr3', 'nef', 'nrw', 'arw', 'orf', 'rw2', 'raf', 'pef', 'srw'],
+    extensions: [
+      '.cr2',
+      '.cr3',
+      '.nef',
+      '.nrw',
+      '.arw',
+      '.orf',
+      '.rw2',
+      '.raf',
+      '.pef',
+      '.srw',
+      '.3fr',
+      '.fff',
+      '.rwl',
+      '.x3f'
+    ]
+  },
+  psd: { openFilterName: 'Photoshop PSD', openExtensions: ['psd'], extensions: ['.psd'] }
 }
 
 const outputTypeMeta: Record<
@@ -85,7 +121,10 @@ export const outputOptionsByInput: Record<InputFileType, OutputFormat[]> = {
   gif: rasterOutputs.filter((f) => f !== 'gif'),
   avif: rasterOutputs.filter((f) => f !== 'avif'),
   tiff: rasterOutputs.filter((f) => f !== 'tiff'),
-  bmp: rasterOutputs.filter((f) => f !== 'bmp')
+  bmp: rasterOutputs.filter((f) => f !== 'bmp'),
+  dng: rasterOutputs,
+  raw: rasterOutputs,
+  psd: rasterOutputs
 }
 
 export const inputFormats: InputFileType[] = [
@@ -96,7 +135,10 @@ export const inputFormats: InputFileType[] = [
   'gif',
   'avif',
   'tiff',
-  'bmp'
+  'bmp',
+  'dng',
+  'raw',
+  'psd'
 ]
 
 function encodeOutput(
@@ -217,6 +259,18 @@ export function getFormatOptions(): FormatOptions {
       'tif',
       'tiff',
       'bmp',
+      'dng',
+      'cr2',
+      'cr3',
+      'nef',
+      'nrw',
+      'arw',
+      'orf',
+      'rw2',
+      'raf',
+      'pef',
+      'srw',
+      'psd',
       'pdf'
     ]
   }
@@ -249,6 +303,18 @@ const DIALOG_IMAGE_EXTENSIONS = [
   'tif',
   'tiff',
   'bmp',
+  'dng',
+  'cr2',
+  'cr3',
+  'nef',
+  'nrw',
+  'arw',
+  'orf',
+  'rw2',
+  'raf',
+  'pef',
+  'srw',
+  'psd',
   'pdf'
 ] as const
 

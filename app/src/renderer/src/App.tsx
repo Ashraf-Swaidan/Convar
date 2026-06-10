@@ -30,6 +30,14 @@ import {
 import { outputFormatHints, supportedInputSummary } from '@/lib/formatHints'
 import { HEIC_PREVIEW_PLACEHOLDER, isHeicPath } from '@/lib/heicPreview'
 import { PDF_PREVIEW_PLACEHOLDER, isPdfPath } from '@/lib/pdfPreview'
+import {
+  DNG_PREVIEW_PLACEHOLDER,
+  isDngPath,
+  isPsdPath,
+  isRawPath,
+  PSD_PREVIEW_PLACEHOLDER,
+  RAW_PREVIEW_PLACEHOLDER
+} from '@/lib/proPreview'
 import { historyMetaForFile } from '@/lib/historyMeta'
 import type { OutputFormat, OutputLayout } from '@/lib/formatTypes'
 import {
@@ -41,6 +49,11 @@ import { getSaveNextToInput, setSaveNextToInput } from '@/lib/saveNextToInput'
 type FormatOptions = {
   outputFormats: OutputFormat[]
   formatLabels: Record<string, string>
+}
+
+type CompatibleOutputs = {
+  formats: OutputFormat[]
+  blockedReason: string | null
 }
 
 type SelectedFile = {
@@ -76,6 +89,7 @@ function fileNameFromPath(filePath: string): string {
 function App(): React.JSX.Element {
   const [formatOptions, setFormatOptions] = useState<FormatOptions | null>(null)
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp')
+  const [compatibleOutputs, setCompatibleOutputs] = useState<CompatibleOutputs | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
   const [statusByPath, setStatusByPath] = useState<Record<string, FileConversionStatus>>({})
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
@@ -110,6 +124,27 @@ function App(): React.JSX.Element {
       setHistoryEntries(entries)
     })()
   }, [])
+
+  useEffect(() => {
+    const paths = selectedFiles.map((file) => file.path)
+    if (paths.length === 0) {
+      setCompatibleOutputs(null)
+      return
+    }
+
+    void window.api.getCompatibleOutputFormats(paths).then(setCompatibleOutputs)
+  }, [selectedFiles])
+
+  useEffect(() => {
+    if (!compatibleOutputs || compatibleOutputs.formats.length === 0) return
+
+    setOutputFormat((current) =>
+      compatibleOutputs.formats.includes(current) ? current : compatibleOutputs.formats[0]
+    )
+  }, [compatibleOutputs])
+
+  const visibleOutputFormats =
+    compatibleOutputs?.formats ?? formatOptions?.outputFormats ?? []
 
   const clearFileState = (): void => {
     setSelectedFiles([])
@@ -200,6 +235,21 @@ function App(): React.JSX.Element {
 
       if (isPdfPath(file.path)) {
         next[index] = { ...next[index], previewUrl: PDF_PREVIEW_PLACEHOLDER }
+        continue
+      }
+
+      if (isDngPath(file.path)) {
+        next[index] = { ...next[index], previewUrl: DNG_PREVIEW_PLACEHOLDER }
+        continue
+      }
+
+      if (isRawPath(file.path)) {
+        next[index] = { ...next[index], previewUrl: RAW_PREVIEW_PLACEHOLDER }
+        continue
+      }
+
+      if (isPsdPath(file.path)) {
+        next[index] = { ...next[index], previewUrl: PSD_PREVIEW_PLACEHOLDER }
         continue
       }
 
@@ -536,24 +586,31 @@ function App(): React.JSX.Element {
           </h2>
           <div className="flex flex-col gap-1.5">
             <Select
-              value={outputFormat}
+              value={visibleOutputFormats.includes(outputFormat) ? outputFormat : undefined}
               onValueChange={handleOutputFormatChange}
-              disabled={isConverting}
+              disabled={isConverting || visibleOutputFormats.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue placeholder="No compatible output" />
               </SelectTrigger>
               <SelectContent>
-                {formatOptions.outputFormats.map((format) => (
+                {visibleOutputFormats.map((format) => (
                   <SelectItem key={format} value={format}>
                     {formatOptions.formatLabels[format]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              {outputFormatHints[outputFormat]} · {supportedInputSummary}
-            </p>
+            {compatibleOutputs?.blockedReason ? (
+              <p className="text-[11px] leading-snug text-destructive">{compatibleOutputs.blockedReason}</p>
+            ) : (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {visibleOutputFormats.includes(outputFormat)
+                  ? outputFormatHints[outputFormat]
+                  : 'Choose files to see compatible outputs'}{' '}
+                · {supportedInputSummary}
+              </p>
+            )}
           </div>
         </section>
 
@@ -688,7 +745,11 @@ function App(): React.JSX.Element {
           <Button
             type="button"
             size="lg"
-            disabled={selectedFiles.length === 0 || isConverting}
+            disabled={
+              selectedFiles.length === 0 ||
+              isConverting ||
+              visibleOutputFormats.length === 0
+            }
             onClick={handleConvert}
           >
             {isConverting
